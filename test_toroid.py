@@ -61,4 +61,41 @@ def test_polynom():
     #assert poly[3] == -38.1674209108
     #assert poly[4] ==  19.9891068153
 
+#Test 3: make sure all the polynomial solvers agree with each other to a certain extent
+def test_solvers():
+    return None
+
+#Ray through the center shouldn't intersect with the torus
+def test_center():
+    tor = Toroid(5, 1, 1)
+    s = np.array([0,0,1])
+    u = np.array([0,0,-1])
+    assert len(tor.ray_intersections_np(s, u)) == 0
+
+#Ray starting inside and going out away from center should have 1 intersection
+def test_inside_out():
+    tor = Toroid(5, 1, 1)
+    s = np.array([0,5,0])
+    u = np.array([0,1,0])
+    # assert len(tor.ray_intersections_np(s, u)) == 1
+    check_equal(tor.ray_intersections_np(s, u), [1])
+
+#Ray starting inside and going towards center should have 3 intersections
+def test_inside_through_center():
+    tor = Toroid(5, 1, 1)
+    s = np.array([0,5,0])
+    u = np.array([0,-1,0])
+    # assert len(tor.ray_intersections_np(s, u)) == 3
+    check_equal(tor.ray_intersections_np(s, u), [1, 9, 11])
+
+    diag = np.array([0.5**0.5, 0.5**0.5, 0])
+    s = 5*diag
+    u = -1*diag
+    check_equal(tor.ray_intersections_np(s, u), [1, 9, 11])
+
+    diag = np.array([0.5**0.5, 0.5**0.5, 0.01])
+    diag /= la.norm(diag)
+    s = 5*diag
+    u = -1*diag
+    assert len(tor.ray_intersections_np(s, u)) == 3
 

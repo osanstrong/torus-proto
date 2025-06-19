@@ -58,5 +58,17 @@ class Toroid:
         c0 = u*u - q*t
         return np.array([c4, c3, c2, c1, c0])
 
+    #Solves for the intersection t values or points of a ray with the torus using np.roots, in a list. If no intersections are found, the list shall be empty.
+    def ray_intersections_np(self, ray_src:np.array, ray_dir:np.array, verbose:bool = False, return_points:bool = False):
+        poly = self.ray_intersection_polynomial(ray_src, ray_dir, verbose)
+        t_vals = np.sort_complex(np.roots(poly))
+        intersections:list = []
+        for t in t_vals:
+            if np.isreal(t) and t >= 0:
+                if return_points:
+                    intersections.append(ray_src + t*ray_dir)
+                else:
+                    intersections.append(t)
+        return intersections
 
 
