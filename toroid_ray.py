@@ -1,17 +1,18 @@
 # A python file/module for prototyping Celeritas/ORANGE raytracing functions of toroids
 # Ray-torus intersection formulae from Graphics Gems II, Gem V.2 by Joseph M Cychosz, Purdue University
 import numpy as np
+from numpy import linalg as la
 
 
 #Utility function to solve a normalized quartic polynomial, returning a list of real roots
-def solve_normal_quartic(b:float, c:float, d:float, e:float):
+def ferrari_solve_quartic(b:float, c:float, d:float, e:float):
     return None
 
 #Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
 #And then also implement the bounding cylinder idea how that changes accuracy/iterations required
 
 # A class representing a toroid using r, a, and b, with additional forms like p, A, B
-class Toroid:
+class Torus:
     def __init__(self, r:float, a:float, b:float, pos:np.array = np.array([0,0,0])):
         self.r = r
         self.a = a 
@@ -68,7 +69,19 @@ class Toroid:
                 if return_points:
                     intersections.append(ray_src + t*ray_dir)
                 else:
-                    intersections.append(t)
+                    intersections.append(np.real(t))
         return intersections
 
+    #Solves for the surface normal at a given position x, y, z
+    def surface_normal(self, pos:np.array):
+        rel_pos = pos - self.pos
+        x = rel_pos[0]
+        y = rel_pos[1]
+        z = rel_pos[2]
+
+        d = (x*x + y*y)**0.5
+        f = 2*(d-self.r) / (d*self.a*self.a)
+        n = np.array([x*f, y*f, (2*y)/(self.b*self.b)])
+        n /= la.norm(n)
+        return n
 
