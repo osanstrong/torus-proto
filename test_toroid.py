@@ -1,5 +1,7 @@
 #A script to run test cases of toroid-ray.py
 import math
+import itertools
+import random
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
@@ -19,10 +21,18 @@ PLOT_COLORS: list[tuple] = [
     ]
 
 #Returns arrays x y z representing a toroidal surface with the given precision, that matplotlib can then plot
-def plot_toroid(torus: Torus, precision: int = 1000):
-    U = np.linspace(0, 2*np.pi, precision)
-    V = np.linspace(0, 2*np.pi, precision)
-    U, V = np.meshgrid(U, V)
+#randomize: how much to randomly vary each u and v by, relative to their step sizes
+def plot_toroid(torus: Torus, precision: int = 1000, randomize: float = 0):
+    rand_seed = 1997
+    rng = np.random.default_rng(seed=rand_seed)
+    rng.uniform(-randomize, randomize, precision)
+
+
+    U = np.linspace(0, 2*np.pi, precision) 
+    V = np.linspace(0, 2*np.pi, precision) 
+    U, V = np.meshgrid(U, V) 
+    U += rng.uniform(-randomize, randomize, (precision, precision))
+    V += rng.uniform(-randomize, randomize, (precision, precision))
 
     X = torus.pos[0] + (torus.r + torus.a*np.cos(V))*np.cos(U)
     Y = torus.pos[1] + (torus.r + torus.a*np.cos(V))*np.sin(U)
@@ -195,7 +205,7 @@ def internal_graze_angle(tor: Torus):
 #Test some grazing cases
 
 #Test that normals are working properly, just display for now
-def test_normals(): 
+def test_normals_pointshot(): 
     tor = Torus(9.8733, 4.387, 1.73)
     #Fan ray source
     s = np.array([-15,0,0])
@@ -222,6 +232,40 @@ def test_normals():
             ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
     plt.show()
 
+#Second normals test, this time using parametric points surrounding the torus
+def test_normals_wrap():
+    tor = Torus(8.31, 1.12, 2.3)
+    density = 15
+    X, Y, Z = plot_toroid(tor, density)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    for (i,j) in itertools.product(range(density), range(density)):
+        pos = np.array([
+            X[i,j], Y[i,j], Z[i,j]
+        ])
+        norm = tor.surface_normal(pos)
+        if (norm is None): continue 
+        outer_norm = pos + norm*3
+        p = pos
+        o = outer_norm
+        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
+    plt.show()
+        
 
-
-
+#Second normals test, same as second but each being slightly offset
+#Second normals test, this time using parametric points surrounding the torus
+def test_normals_randwrap():
+    tor = Torus(8.31, 1.12, 2.3)
+    density = 5
+    X, Y, Z = plot_toroid(tor, density, randomize=1)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    for (i,j) in itertools.product(range(density), range(density)):
+        pos = np.array([
+            X[i,j], Y[i,j], Z[i,j]
+        ])
+        norm = tor.surface_normal(pos)
+        if (norm is None): continue 
+        outer_norm = pos + norm*3
+        p = pos
+        o = outer_norm
+        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=0)
+    plt.show()
