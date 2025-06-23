@@ -254,7 +254,7 @@ def test_normals_wrap():
 #Second normals test, same as second but each being slightly offset
 #Second normals test, this time using parametric points surrounding the torus
 def test_normals_randwrap():
-    tor = Torus(8.31, 1.12, 2.3)
+    tor = Torus(6.77, 1.31, 0.324)
     density = 5
     X, Y, Z = plot_toroid(tor, density, randomize=1)
     ax = display_intersections(tor, [], [], [], defer_showing=True)
@@ -267,5 +267,5 @@ def test_normals_randwrap():
         outer_norm = pos + norm*3
         p = pos
         o = outer_norm
-        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=0)
+        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
     plt.show()
