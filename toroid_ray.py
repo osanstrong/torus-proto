@@ -86,7 +86,10 @@ class Torus:
 
         d = (x*x + y*y)**0.5
         f = 2*(d-self.r) / (d*self.a*self.a)
-        n = np.array([x*f, y*f, (2*y)/(self.b*self.b)])
-        n /= la.norm(n)
+        n = np.array([x*f, y*f, (2*z)/(self.b*self.b)])
+        length = la.norm(n)
+        if length == 0:
+            return None
+        n /= length
         return n
 
