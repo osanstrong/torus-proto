@@ -252,7 +252,6 @@ def test_normals_wrap():
         
 
 #Second normals test, same as second but each being slightly offset
-#Second normals test, this time using parametric points surrounding the torus
 def test_normals_randwrap():
     tor = Torus(6.77, 1.31, 0.324)
     density = 5
@@ -268,4 +267,78 @@ def test_normals_randwrap():
         p = pos
         o = outer_norm
         ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
+    plt.show()
+
+#Create random assortment of points and test if they're in the torus
+def test_random_piv():
+    rand_seed = 1997
+    rng = np.random.default_rng(seed=rand_seed)
+    
+    c = np.array([3.1, 123, 9.77])
+    tor = Torus(13.11, 2.71, 1.997, pos=c)
+
+    w = (tor.r + tor.a)*1.3
+    h = tor.b + w-(tor.r+tor.a)
+
+    num_points = 1000
+    x = rng.uniform(c[0] - w, c[0] + w, num_points)
+    y = rng.uniform(c[1] - w, c[1] + w, num_points)
+    z = rng.uniform(c[2] - h, c[2] + h, num_points)
+
+    inside = [[], [], []]
+    outside = [[], [], []]
+    for i in range(num_points):
+        point = np.array([x[i], y[i], z[i]])
+        if tor.point_in_volume(point):
+            inside[0].append(x[i])
+            inside[1].append(y[i])
+            inside[2].append(z[i])
+        else:
+            outside[0].append(x[i])
+            outside[1].append(y[i])
+            outside[2].append(z[i])
+    
+    inside = np.array(inside)
+    outside = np.array(outside)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    ax.scatter(inside[0,:], inside[1,:], inside[2,:], c=to_hex((0,0.8,0)))
+    ax.scatter(outside[0,:], outside[1,:], outside[2,:], c=to_hex((0.9,0,0)))
+    plt.show()
+
+#Test if points on the edge of the torus are considered in / out
+def test_random_edge():
+    rand_seed = 1997
+    rng = np.random.default_rng(seed=rand_seed)
+
+    c = np.array([3.1, 123, 9.77])
+    tor = Torus(13.11, 2.71, 1.997, pos=c)
+
+    w = (tor.r + tor.a)*1.3
+    h = tor.b + w-(tor.r+tor.a)
+
+    num_points = 1000
+    U = rng.uniform(0, 2*np.pi, num_points)
+    V = rng.uniform(0, 2*np.pi, num_points)
+    x = tor.pos[0] + (tor.r + tor.a*np.cos(V))*np.cos(U)
+    y = tor.pos[1] + (tor.r + tor.a*np.cos(V))*np.sin(U)
+    z = tor.pos[2] + tor.b*np.sin(V)
+
+    inside = [[], [], []]
+    outside = [[], [], []]
+    for i in range(num_points):
+        point = np.array([x[i], y[i], z[i]])
+        if tor.point_in_volume(point):
+            inside[0].append(x[i])
+            inside[1].append(y[i])
+            inside[2].append(z[i])
+        else:
+            outside[0].append(x[i])
+            outside[1].append(y[i])
+            outside[2].append(z[i])
+    
+    inside = np.array(inside)
+    outside = np.array(outside)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    ax.scatter(inside[0,:], inside[1,:], inside[2,:], c=to_hex((0,0.8,0)))
+    ax.scatter(outside[0,:], outside[1,:], outside[2,:], c=to_hex((0.9,0,0)))
     plt.show()

@@ -93,3 +93,13 @@ class Torus:
         n /= length
         return n
 
+    #Returns if the given point is contained inside this torus
+    def point_in_volume(self, pos: np.array):
+        rel_pos = pos - self.pos
+        x = rel_pos[0]
+        y = rel_pos[1]
+        z = rel_pos[2]
+        r = self.r
+        a = self.a
+        b = self.b
+        return (x*x + y*y + z*z*(a*a)/(b*b) + (r*r-a*a))**2 - (4*r*r)*(x*x + y*y) <= 0
