@@ -5,7 +5,7 @@ from numpy import linalg as la
 
 
 #Utility function to solve a normalized quartic polynomial, returning a list of real roots
-def ferrari_solve_quartic(b:float, c:float, d:float, e:float):
+def ferrari_solve_quartic(b: float, c: float, d: float, e: float):
     return None
 
 #Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
@@ -13,7 +13,8 @@ def ferrari_solve_quartic(b:float, c:float, d:float, e:float):
 
 # A class representing a toroid using r, a, and b, with additional forms like p, A, B
 class Torus:
-    def __init__(self, r:float, a:float, b:float, pos:np.array = np.array([0,0,0])):
+    def __init__(self, r: float, a: float, b: float, 
+                 pos: np.array = np.array([0,0,0])):
         self.r = r
         self.a = a 
         self.b = b
@@ -23,8 +24,10 @@ class Torus:
         self.B = r*r-a*a
         self.pos = pos
 
-    #Finds the characteristic polynomial of a rays intersection with the torus, and returns an np array containing that polynomial's coefficients. (First coeff always 1)
-    def ray_intersection_polynomial(self, ray_src:np.array, ray_dir:np.array, verbose:bool=False):
+    #Finds the characteristic polynomial of a rays intersection with the torus, 
+    # and returns an np array containing that polynomial's coefficients. (First coeff always 1)
+    def ray_intersection_polynomial(self, ray_src: np.array, 
+                                    ray_dir: np.array, verbose: bool = False):
         c = self.pos 
         x0 = ray_src[0] - c[0]
         y0 = ray_src[1] - c[1]
@@ -59,8 +62,10 @@ class Torus:
         c0 = u*u - q*t
         return np.array([c4, c3, c2, c1, c0])
 
-    #Solves for the intersection t values or points of a ray with the torus using np.roots, in a list. If no intersections are found, the list shall be empty.
-    def ray_intersections_np(self, ray_src:np.array, ray_dir:np.array, verbose:bool = False, return_points:bool = False):
+    # Solves for the intersection t values or points of a ray with the torus using np.roots, in a list. 
+    # If no intersections are found, the list shall be empty.
+    def ray_intersections_np(self, ray_src: np.array, ray_dir: np.array, 
+                             verbose: bool = False, return_points: bool = False):
         poly = self.ray_intersection_polynomial(ray_src, ray_dir, verbose)
         t_vals = np.sort_complex(np.roots(poly))
         intersections:list = []
@@ -73,7 +78,7 @@ class Torus:
         return intersections
 
     #Solves for the surface normal at a given position x, y, z
-    def surface_normal(self, pos:np.array):
+    def surface_normal(self, pos: np.array):
         rel_pos = pos - self.pos
         x = rel_pos[0]
         y = rel_pos[1]
