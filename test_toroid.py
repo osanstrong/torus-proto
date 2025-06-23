@@ -1,12 +1,13 @@
 #A script to run test cases of toroid-ray.py
-
+import math
+import numpy as np
+import numpy.linalg as la
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
 import toroid_ray
 from toroid_ray import Torus
-import numpy as np
-import numpy.linalg as la
-import math
+
+
 
 PLOT_RESULTS: bool = True
 PLOT_COLORS: list[tuple] = [
