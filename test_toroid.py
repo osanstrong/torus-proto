@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
 import toroid_ray
 from toroid_ray import Torus
+import toroid_util
 
 
 
@@ -342,3 +343,32 @@ def test_random_edge():
     ax.scatter(inside[0,:], inside[1,:], inside[2,:], c=to_hex((0,0.8,0)))
     ax.scatter(outside[0,:], outside[1,:], outside[2,:], c=to_hex((0.9,0,0)))
     plt.show()
+
+def test_rootfinders_random():
+    rand_seed = 1998
+    rng = np.random.default_rng(seed=rand_seed)
+    
+    num_trials = 1000
+    min_power = -48
+    max_power = 48
+    for i in range(num_trials):
+        coeff_exps = rng.uniform(min_power, max_power, 4)
+        coeff_exps = [1]+[float(n) for n in coeff_exps]
+
+        roots_np = toroid_util.real_roots_numpy(coeff_exps)
+        roots_fr, root_locals = toroid_util.real_roots_ferrari(coeff_exps, verbose=True)
+
+        check_equal(roots_np, roots_fr)
+
+def test_rootfinders_desmos():
+    desmos_coeffs = [
+        1,
+        10.3487176734,
+        48.5955496218,
+        102.422553557,
+        69.3726451627
+    ]
+    np_roots = toroid_util.real_roots_numpy(desmos_coeffs)
+    fr_roots, fr_locals = toroid_util.real_roots_ferrari(desmos_coeffs, verbose=True)
+
+    check_equal(np_roots, fr_roots)

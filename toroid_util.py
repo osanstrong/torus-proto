@@ -6,8 +6,11 @@ import numpy as np
 
 
 
-def roots_numpy(coeffs):
-    return np.roots(coeffs)
+def real_roots_numpy(coeffs):
+    all_roots = np.roots(coeffs)
+    real = all_roots[np.isreal(all_roots)]
+    real_list = [float(np.real(r)) for r in real]
+    return sorted(real_list)
 
 '''
 Ferrari Method Implementation
@@ -15,7 +18,8 @@ Where coeffs are organized c[0]x^4, c[1]x^3, c[2]x^2, c[3]x, c[4] and c[0]==1
 Returns a list of real roots (if no real roots found, empty list)
 #TODO: Simplify to only return positive roots?
 '''
-def real_roots_ferrari(coeffs):
+def real_roots_ferrari(coeffs, verbose=False):
+    final_roots: list = []
     b = coeffs[1]
     c = coeffs[2]
     d = coeffs[3]
@@ -27,23 +31,42 @@ def real_roots_ferrari(coeffs):
     if bu == 0: # Special case
         print()
     cu = -(3 * b**4)/256 + (b*b*c)/16 - (c*d)
+
+    
     
     P = -(au*au)/12 - cu
     Q = -(au**3)/108 + (au*cu)/3 - (bu*bu)/8
     W_presqrt = Q*Q/4 + (P**3)/27
-    if W_presqrt < 0: return []
+
+
+
+    if W_presqrt < 0: 
+        if verbose:
+            return sorted(final_roots), locals()
+        else:
+            return sorted(final_roots)
+        if (verbose):
+            print("W is imaginary")
+            print(locals())
     W = np.cbrt(-Q/2 + math.sqrt(W_presqrt))
 
     y = au/6 + W - P/(3*W)
 
     #Left and right sides of a term with 2 roots -> 4 solutions
     L2 = 2*y - au
-    if L2 < 0: return []
+    if L2 < 0: 
+        if verbose:
+            return sorted(final_roots), locals()
+        else:
+            return sorted(final_roots)
+        if (verbose):
+            print("L is imaginary")
+            print(locals())
     elif L2 == 0:
         raise ArithmeticError("L==0, Uhhh this means division by 0 and I'm frankly not sure what it means in the context of the intersection problem")
     L = math.sqrt(2*y - au)
 
-    final_roots: list = []
+    
     #R^2, where L is the negative sqrt
     R2_Ln = -2*y - au + (2*bu)/L
     if R2_Ln > 0:
@@ -66,7 +89,12 @@ def real_roots_ferrari(coeffs):
         final_roots[i] *= 0.5
         final_roots[i] -= b/4
     
-    return final_roots
+    if (verbose):
+        print(locals())
+    if verbose:
+        return sorted(final_roots), locals()
+    else:
+        return sorted(final_roots)
     
     #Solve for a root of the subcubic
     # b_c = c
