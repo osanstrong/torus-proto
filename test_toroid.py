@@ -109,7 +109,8 @@ def assert_intersections(tor: Torus, ray_src: np.array, ray_dir: np.array,
     #poly = tor.ray_intersection_polynomial(ray_src, ray_dir)
     t_lists = [known_t_list]
     #1st: basic numpy root method
-    np_t_list = tor.ray_intersections_np(ray_src, ray_dir)
+    np_solver = toroid_util.real_roots_numpy
+    np_t_list, np_info = tor.ray_intersections(ray_src, ray_dir, np_solver)
     t_lists.append(np_t_list)
     #2nd: ferrari limited, as seen on https://www.desmos.com/3d/2ba985c474
     fr_solver = toroid_util.real_roots_ferrari
@@ -180,7 +181,7 @@ def test_center():
     tor = Torus(5, 1, 1)
     s = np.array([0,0,1])
     u = np.array([0,0,-1])
-    assert len(tor.ray_intersections_np(s, u)) == 0
+    assert len(tor.ray_intersections(s, u, toroid_util.real_roots_ferrari_SE)[0]) == 0
 
 #Ray starting inside and going out away from center should have 1 intersection
 def test_inside_out():
@@ -215,7 +216,7 @@ def test_inside_through_center_diagoffset():
     diag /= la.norm(diag)
     s = 5*diag
     u = -1*diag
-    inters = tor.ray_intersections_np(s, u)
+    inters, inter_locals = tor.ray_intersections(s, u, toroid_util.real_roots_ferrari_SE)
     display_intersections(tor, [s], [u], [inters])
     assert len(inters) == 3
 
@@ -243,9 +244,9 @@ def test_normals_pointshot():
         for phi in phis:
             u = np.array([math.cos(phi)*math.cos(th), math.cos(phi)*math.sin(th), math.sin(phi)])
             us.append(u)
-            t_set = tor.ray_intersections_np(s, u)
+            t_set, t_info = tor.ray_intersections(s, u, toroid_util.real_roots_ferrari_SE)
             t_sets.append(t_set)
-            p_set = tor.ray_intersections_np(s, u, return_points=True)
+            p_set, p_info = tor.ray_intersections(s, u, toroid_util.real_roots_ferrari_SE, return_points=True)
             p_sets.append(p_set)
     ss = [s]*len(us)
     ax = display_intersections(tor, ss, us, t_sets, defer_showing=True)
@@ -382,7 +383,7 @@ def test_rootfinders_random():
         coeff_exps = glob_rng.normal(0, max_power/2, 4)
         coeff_exps = [1]+[float(n) for n in coeff_exps]
 
-        roots_np, base_roots = toroid_util.real_roots_numpy(coeff_exps, include_base_roots=True)
+        roots_np, info_np = toroid_util.real_roots_numpy(coeff_exps)
         # roots_fr, root_locals = toroid_util.real_roots_ferrari(coeff_exps)
         roots_fr, root_locals = toroid_util.real_roots_ferrari_SE(coeff_exps)
         # roots_frnp, root_locals_np = toroid_util.real_roots_ferrari_npdebug(coeff_exps)
@@ -400,7 +401,7 @@ def test_rootfinders_desmos():
         102.422553557,
         69.3726451627
     ]
-    np_roots = toroid_util.real_roots_numpy(desmos_coeffs)
+    np_roots, np_info = toroid_util.real_roots_numpy(desmos_coeffs)
     fr_roots, fr_locals = toroid_util.real_roots_ferrari(desmos_coeffs)
     fr_roots = sorted(fr_roots)
     np_roots = sorted(np_roots)

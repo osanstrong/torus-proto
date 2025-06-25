@@ -6,15 +6,14 @@ import numpy as np
 import cmath
 
 
-
-def real_roots_numpy(coeffs, include_base_roots=False):
+'''
+Solves for roots of the polynomial using numpy's eigenvalue / matrix implementation
+'''
+def real_roots_numpy(coeffs: list[float]) -> (list[float], dict):
     all_roots = np.roots(coeffs)
     real = all_roots[np.isreal(all_roots)]
     real_list = [float(np.real(r)) for r in real]
-    if include_base_roots:
-        return real_list, all_roots
-    else:
-        return sorted(real_list)
+    return real_list, locals()
 
 '''
 Ferrari Method Implementation
