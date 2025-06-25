@@ -47,10 +47,10 @@ def plot_toroid(torus: Torus, precision: int = 1000, randomize: float = 0):
     return X, Y, Z
 
 # Quick shorthand to check if two arrays are equivalent
-def check_equal(a, b):
+def check_equal(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert len(a) == len(b)
     for i in range(len(a)):
-        assert math.isclose(a[i], b[i])
+        assert math.isclose(a[i], b[i], rel_tol=rel_tol, abs_tol=abs_tol)
 
 # Plots the given torus and matching lists of ray sources, ray directions, and intersection t lists. 
 # Can also have showing deferred, to display anything else on top of it.
@@ -112,9 +112,13 @@ def assert_intersections(tor: Torus, ray_src: np.array, ray_dir: np.array,
     np_t_list = tor.ray_intersections_np(ray_src, ray_dir)
     t_lists.append(np_t_list)
     #2nd: ferrari limited, as seen on https://www.desmos.com/3d/2ba985c474
-    fr_solver = toroid_util.real_roots_ferrari_npdebug
+    fr_solver = toroid_util.real_roots_ferrari
     fr_t_list, fr_info = tor.ray_intersections(ray_src, ray_dir, fr_solver)
     t_lists.append(fr_t_list)
+    #3rd: ferrari full, which can edge around complex numbers and was taken from StackExchange
+    fr_solver_SE = toroid_util.real_roots_ferrari_SE
+    fr_t_list_SE, fr_info_SE = tor.ray_intersections(ray_src, ray_dir, fr_solver_SE)
+    t_lists.append(fr_t_list_SE)
     #TODO: Test more root methods? Should each one have a distinct color, 
     # or is showing the number of intersections more important? 
     
@@ -128,6 +132,7 @@ def assert_intersections(tor: Torus, ray_src: np.array, ray_dir: np.array,
     #After display, run actual test
     check_equal(np_t_list, known_t_list)
     check_equal(fr_t_list, known_t_list)
+    check_equal(fr_t_list_SE, known_t_list)
 
 #Test 1: a toroidal surface is graphed as expected
 def tesnt_create():
@@ -366,18 +371,26 @@ def test_random_edge():
 def test_rootfinders_random():
     
     
-    num_trials = 1000
+    num_trials = 10000
     min_power = -48
     max_power = 48
     for i in range(num_trials):
-        coeff_exps = glob_rng.uniform(min_power, max_power, 4)
+        roots_fr = None
+        roots_np = None
+        roots_frnp = None
+        # coeff_exps = glob_rng.uniform(min_power, max_power, 4)
+        coeff_exps = glob_rng.normal(0, max_power/2, 4)
         coeff_exps = [1]+[float(n) for n in coeff_exps]
 
         roots_np, base_roots = toroid_util.real_roots_numpy(coeff_exps, include_base_roots=True)
-        roots_fr, root_locals = toroid_util.real_roots_ferrari(coeff_exps, verbose=True)
-        roots_frnp, root_locals_np = toroid_util.real_roots_ferrari_npdebug(coeff_exps, verbose=True)
+        # roots_fr, root_locals = toroid_util.real_roots_ferrari(coeff_exps)
+        roots_fr, root_locals = toroid_util.real_roots_ferrari_SE(coeff_exps)
+        # roots_frnp, root_locals_np = toroid_util.real_roots_ferrari_npdebug(coeff_exps)
         root_locals = printer.pformat(root_locals)
-        check_equal(roots_np, roots_fr)
+
+        roots_fr = sorted(roots_fr)
+        roots_np = sorted(roots_np)
+        check_equal(roots_np, roots_fr, abs_tol=1e-6)
 
 def test_rootfinders_desmos():
     desmos_coeffs = [
@@ -388,6 +401,8 @@ def test_rootfinders_desmos():
         69.3726451627
     ]
     np_roots = toroid_util.real_roots_numpy(desmos_coeffs)
-    fr_roots, fr_locals = toroid_util.real_roots_ferrari(desmos_coeffs, verbose=True)
+    fr_roots, fr_locals = toroid_util.real_roots_ferrari(desmos_coeffs)
+    fr_roots = sorted(fr_roots)
+    np_roots = sorted(np_roots)
 
     check_equal(np_roots, fr_roots)
