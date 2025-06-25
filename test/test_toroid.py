@@ -4,9 +4,10 @@
 # TODO: do this in a more pythonic way
 import os
 import sys
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.join(current_dir, '..')
-sys.path.insert(0, parent_dir) 
+parent_dir = os.path.join(current_dir, "..")
+sys.path.insert(0, parent_dir)
 #
 
 import math
@@ -51,9 +52,9 @@ def plot_toroid(torus: Torus, precision: int = 1000, randomize: float = 0):
     U += rng.uniform(-randomize, randomize, (precision, precision))
     V += rng.uniform(-randomize, randomize, (precision, precision))
 
-    X = torus.pos[0] + (torus.r + torus.a * np.cos(V)) * np.cos(U)
-    Y = torus.pos[1] + (torus.r + torus.a * np.cos(V)) * np.sin(U)
-    Z = torus.pos[2] + torus.b * np.sin(V)
+    X = (torus.r + torus.a * np.cos(V)) * np.cos(U)
+    Y = (torus.r + torus.a * np.cos(V)) * np.sin(U)
+    Z = torus.b * np.sin(V)
     return X, Y, Z
 
 
@@ -78,16 +79,15 @@ def display_intersections(
     if manual_colors is None:
         manual_colors = [None] * len(t_lists)
 
-    pos = tor.pos
     pad = (tor.r + tor.a) * 1.25
     x, y, z = plot_toroid(tor, precision=100)
 
     fig = plt.figure()
     # ax = fig.gca(projection='3d')
     ax = fig.add_subplot(projection="3d", computed_zorder=False)
-    ax.axes.set_xlim3d(left=pos[0] - pad, right=pos[0] + pad)
-    ax.axes.set_ylim3d(bottom=pos[1] - pad, top=pos[1] + pad)
-    ax.axes.set_zlim3d(bottom=pos[2] - pad, top=pos[2] + pad)
+    ax.axes.set_xlim3d(left=-pad, right=pad)
+    ax.axes.set_ylim3d(bottom=-pad, top=pad)
+    ax.axes.set_zlim3d(bottom=-pad, top=pad)
     ax.plot_surface(x, y, z, antialiased=True, color="orange", zorder=0)
     for i in range(len(rays_src)):
         ts = np.array(t_lists[i])
@@ -170,25 +170,23 @@ def assert_intersections(
 def tesnt_create():
     # tor = Toroid(5, 1, 0.3, pos=np.array([5, 5, 5]))
     tor = Torus(5, 1, 0.3)
-    pos = tor.pos
     pad = 7
     x, y, z = plot_toroid(tor)
 
     fig = plt.figure()
     # ax = fig.gca(projection='3d')
     ax = fig.add_subplot(projection="3d")
-    ax.axes.set_xlim3d(left=pos[0] - pad, right=pos[0] + pad)
-    ax.axes.set_ylim3d(bottom=pos[1] - pad, top=pos[1] + pad)
-    ax.axes.set_zlim3d(bottom=pos[2] - pad, top=pos[2] + pad)
+    ax.axes.set_xlim3d(left=-pad, right=pad)
+    ax.axes.set_ylim3d(bottom=-pad, top=pad)
+    ax.axes.set_zlim3d(bottom=pad, top=pad)
     ax.plot_surface(x, y, z, antialiased=True, color="orange")
     plt.show()
 
 
 # Test 2: compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
 def test_polynom():
-    c = np.array([0.96, -0.25, 1.3])
-    tor = Torus(3.05, 1, 0.5, pos=c)
-    s = np.array([1.4, 2.9, 2.6])
+    tor = Torus(3.05, 1, 0.5)
+    s = np.array([1.4, 2.9, 2.6]) - np.array([0.96, -0.25, 1.3])
     u = np.array([0.63, -0.2, -1.66])
     u /= la.norm(u)
 
@@ -354,7 +352,7 @@ def test_random_piv():
     rng = np.random.default_rng(seed=rand_seed)
 
     c = np.array([3.1, 123, 9.77])
-    tor = Torus(13.11, 2.71, 1.997, pos=c)
+    tor = Torus(13.11, 2.71, 1.997)
 
     w = (tor.r + tor.a) * 1.3
     h = tor.b + w - (tor.r + tor.a)
@@ -390,8 +388,7 @@ def test_random_edge():
     rand_seed = 1997
     rng = np.random.default_rng(seed=rand_seed)
 
-    c = np.array([3.1, 123, 9.77])
-    tor = Torus(13.11, 2.71, 1.997, pos=c)
+    tor = Torus(13.11, 2.71, 1.997)
 
     w = (tor.r + tor.a) * 1.3
     h = tor.b + w - (tor.r + tor.a)
@@ -399,9 +396,9 @@ def test_random_edge():
     num_points = 1000
     U = rng.uniform(0, 2 * np.pi, num_points)
     V = rng.uniform(0, 2 * np.pi, num_points)
-    x = tor.pos[0] + (tor.r + tor.a * np.cos(V)) * np.cos(U)
-    y = tor.pos[1] + (tor.r + tor.a * np.cos(V)) * np.sin(U)
-    z = tor.pos[2] + tor.b * np.sin(V)
+    x = (tor.r + tor.a * np.cos(V)) * np.cos(U)
+    y = (tor.r + tor.a * np.cos(V)) * np.sin(U)
+    z = tor.b * np.sin(V)
 
     inside = [[], [], []]
     outside = [[], [], []]

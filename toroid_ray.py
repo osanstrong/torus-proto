@@ -4,39 +4,30 @@ from collections.abc import Callable
 import numpy as np
 from numpy import linalg as la
 
-
-# Utility function to solve a normalized quartic polynomial, returning a list of real roots
-def ferrari_solve_quartic(b: float, c: float, d: float, e: float):
-    return None
-
-
 # Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
 # And then also implement the bounding cylinder idea how that changes accuracy/iterations required
 
 
 # A class representing a toroid using r, a, and b, with additional forms like p, A, B
 class Torus:
-    def __init__(
-        self, r: float, a: float, b: float, pos: np.array = np.array([0, 0, 0])
-    ):
+    def __init__(self, r: float, a: float, b: float):
         self.r = r
         self.a = a
         self.b = b
+
         # From Graphics Gems, form which is more convenient for solving ray intersection
         self.p = (a * a) / (b * b)
         self.A = 4 * r * r
         self.B = r * r - a * a
-        self.pos = pos
 
     # Finds the characteristic polynomial of a rays intersection with the torus,
     # and returns an np array containing that polynomial's coefficients. (First coeff always 1)
     def ray_intersection_polynomial(
         self, ray_src: np.array, ray_dir: np.array, verbose: bool = False
     ):
-        c = self.pos
-        x0 = ray_src[0] - c[0]
-        y0 = ray_src[1] - c[1]
-        z0 = ray_src[2] - c[2]
+        x0 = ray_src[0]
+        y0 = ray_src[1]
+        z0 = ray_src[2]
 
         ax = ray_dir[0]
         ay = ray_dir[1]
@@ -89,10 +80,9 @@ class Torus:
 
     # Solves for the surface normal at a given position x, y, z
     def surface_normal(self, pos: np.array):
-        rel_pos = pos - self.pos
-        x = rel_pos[0]
-        y = rel_pos[1]
-        z = rel_pos[2]
+        x = pos[0]
+        y = pos[1]
+        z = pos[2]
 
         d = (x * x + y * y) ** 0.5
         f = 2 * (d - self.r) / (d * self.a * self.a)
@@ -105,10 +95,9 @@ class Torus:
 
     # Returns if the given point is contained inside this torus
     def point_in_volume(self, pos: np.array):
-        rel_pos = pos - self.pos
-        x = rel_pos[0]
-        y = rel_pos[1]
-        z = rel_pos[2]
+        x = pos[0]
+        y = pos[1]
+        z = pos[2]
         r = self.r
         a = self.a
         b = self.b
