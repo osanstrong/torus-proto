@@ -1,5 +1,6 @@
 # A python file/module for prototyping Celeritas/ORANGE raytracing functions of toroids
 # Ray-torus intersection formulae from Graphics Gems II, Gem V.2 by Joseph M Cychosz, Purdue University
+from collections.abc import Callable
 import numpy as np
 from numpy import linalg as la
 
@@ -61,6 +62,18 @@ class Torus:
         c1 = 2*m*u - q*l
         c0 = u*u - q*t
         return np.array([c4, c3, c2, c1, c0])
+
+    '''
+    Solves for the intersection t values using the given quartic solver, and returns in a list alongside the locals from the solver.
+    quart_solver: should take a list of floats and return a list of floats, as well as a copy of its local variables (for debugging/profiling)
+    '''
+    def ray_intersections(self, ray_src: np.array, ray_dir: np.array, 
+                          quart_solver: Callable[[list[float]], (list[float], dict)], 
+                          verbose: bool = False) -> (list[float], dict):
+        poly = self.ray_intersection_polynomial(ray_src, ray_dir, verbose)
+        t_vals, solver_locals = quart_solver(poly)
+        intersections: list = sorted([t for t in t_vals if t>0])
+        return intersections, solver_locals
 
     # Solves for the intersection t values or points of a ray with the torus using np.roots, in a list. 
     # If no intersections are found, the list shall be empty.

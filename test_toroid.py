@@ -6,11 +6,17 @@ import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_hex
+import pprint
+import pytest
+import inspect
 import toroid_ray
 from toroid_ray import Torus
 import toroid_util
 
+printer = pprint.PrettyPrinter(indent=4)
 
+glob_rand_seed = 1999
+glob_rng = np.random.default_rng(seed=glob_rand_seed)
 
 PLOT_RESULTS: bool = True
 PLOT_COLORS: list[tuple] = [
@@ -75,9 +81,9 @@ def display_intersections(tor: Torus, rays_src: list[np.array],
             col=PLOT_COLORS[len(ts)]
         s = rays_src[i]
         d = rays_dir[i].astype(np.dtype('float64'))
-        print("direction pre-norm: " + str(d))
+        # print("direction pre-norm: " + str(d))
         d /= la.norm(d)
-        print("direction post-norm: " + str(d))
+        # print("direction post-norm: " + str(d))
         t_ray = pad*2
         e = s+d*t_ray
         # ax.set_color_cycle([col])
@@ -88,6 +94,9 @@ def display_intersections(tor: Torus, rays_src: list[np.array],
         ax.scatter(s[0]+ts*d[0], s[1]+ts*d[1], s[2]+ts*d[2], 
                    "zorder=3\nalpha=1", c=to_hex(col)) 
     # ax.legend()
+    method = inspect.stack()[1]
+    supermethod = inspect.stack()[2]
+    plt.title(f"Test: {method.function} (in {supermethod.function})") #Label with name of method that called this one
     if not defer_showing:
         plt.show()
     return ax
@@ -95,13 +104,17 @@ def display_intersections(tor: Torus, rays_src: list[np.array],
 # Secondary shorthand to test all intersection methods for a given torus-ray combo.
 def assert_intersections(tor: Torus, ray_src: np.array, ray_dir: np.array, 
                          known_t_list: list, show_results: bool = PLOT_RESULTS):
-    print("direction: " + str(ray_dir))
+    # print("direction: " + str(ray_dir))
     #ray_dir /= la.norm(ray_dir)
     #poly = tor.ray_intersection_polynomial(ray_src, ray_dir)
     t_lists = [known_t_list]
     #1st: basic numpy root method
     np_t_list = tor.ray_intersections_np(ray_src, ray_dir)
     t_lists.append(np_t_list)
+    #2nd: ferrari limited, as seen on https://www.desmos.com/3d/2ba985c474
+    fr_solver = toroid_util.real_roots_ferrari_npdebug
+    fr_t_list, fr_info = tor.ray_intersections(ray_src, ray_dir, fr_solver)
+    t_lists.append(fr_t_list)
     #TODO: Test more root methods? Should each one have a distinct color, 
     # or is showing the number of intersections more important? 
     
@@ -114,6 +127,7 @@ def assert_intersections(tor: Torus, ray_src: np.array, ray_dir: np.array,
 
     #After display, run actual test
     check_equal(np_t_list, known_t_list)
+    check_equal(fr_t_list, known_t_list)
 
 #Test 1: a toroidal surface is graphed as expected
 def tesnt_create():
@@ -177,16 +191,21 @@ def test_inside_through_center():
     tor = Torus(5, 1, 1)
     s = np.array([0,5.0,0])
     u = np.array([0,-1.0,0])
-    # assert len(tor.ray_intersections_np(s, u)) == 3
-    #check_equal(tor.ray_intersections_np(s, u), [1, 9, 11])
     assert_intersections(tor, s, u, [1, 9, 11])
 
+def test_inside_through_center_diag():
+    tor = Torus(5, 1, 1)
+    s = np.array([0,5.0,0])
+    u = np.array([0,-1.0,0])
     diag = np.array([0.5**0.5, 0.5**0.5, 0])
     s = 5*diag
     u = -1*diag
     assert_intersections(tor, s, u, [1,9,11])
-    #check_equal(tor.ray_intersections_np(s, u), [1, 9, 11])
 
+def test_inside_through_center_diagoffset():
+    tor = Torus(5, 1, 1)
+    s = np.array([0,5.0,0])
+    u = np.array([0,-1.0,0])
     diag = np.array([0.5**0.5, 0.5**0.5*0.8, 0.03])
     diag /= la.norm(diag)
     s = 5*diag
@@ -345,19 +364,19 @@ def test_random_edge():
     plt.show()
 
 def test_rootfinders_random():
-    rand_seed = 1998
-    rng = np.random.default_rng(seed=rand_seed)
+    
     
     num_trials = 1000
     min_power = -48
     max_power = 48
     for i in range(num_trials):
-        coeff_exps = rng.uniform(min_power, max_power, 4)
+        coeff_exps = glob_rng.uniform(min_power, max_power, 4)
         coeff_exps = [1]+[float(n) for n in coeff_exps]
 
-        roots_np = toroid_util.real_roots_numpy(coeff_exps)
+        roots_np, base_roots = toroid_util.real_roots_numpy(coeff_exps, include_base_roots=True)
         roots_fr, root_locals = toroid_util.real_roots_ferrari(coeff_exps, verbose=True)
-
+        roots_frnp, root_locals_np = toroid_util.real_roots_ferrari_npdebug(coeff_exps, verbose=True)
+        root_locals = printer.pformat(root_locals)
         check_equal(roots_np, roots_fr)
 
 def test_rootfinders_desmos():
