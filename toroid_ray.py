@@ -4,8 +4,12 @@ from collections.abc import Callable
 import numpy as np
 from numpy import linalg as la
 
-'''A module for modeling Elliptic Toroids for raytracing-like applications, specifically Celeritas and ORANGE,
+'''A module for modeling Elliptic Toroid surfaces for raytracing-like applications, specifically Celeritas and ORANGE.
 
+This module contains a class "Toroid" which represents an elliptical Toroid surface, with three functions necessary for raytracing:
+ - The first intersection (if any) with the surface along a given ray
+ - The sense of a point relative to the torus, whether inside, on, or outside
+ - The normal vector to the surface at a given point
 '''
 
 # Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
@@ -13,7 +17,36 @@ from numpy import linalg as la
 
 
 class Toroid:# A class representing a toroid using r, a, and b, with additional forms like p, A, B
+    '''A class representing a z-axis oriented, origin-centered elliptical toroid in terms of: 
+        r, the major radius (along xy plane); 
+        a, the radius of the rotated ellipse which is parallel to the major radius (xy plane); and 
+        b, the ellipse radius orthogonal to the major radius (z axis). 
+        
+    Class objects also contain three methods for the three surface functions: distance from point
+    along ray, surface sense at point, and surface normal at point.
+
+    Note
+    ----
+    The class also contains a secondary representation of its properties in terms of 3 parameters
+    p, A, and B, for the purpose of solving ray intersection. However, accessing these parameters
+    directly is highly discouraged, as their precise implementation is non-final.
+    
+    '''
     def __init__(self, r: float, a: float, b: float):
+        '''
+        Parameters
+        ----------
+        r : float
+            The radius from the origin of the toroid to the center of the revolved ellipse, or the "Major Radius", along the xy plane
+        a : float
+            The radius of the revolved ellipse aligned with the major radius, or the "parallel minor radius", along the xy plane
+        b : float
+            The radius of the revolved ellipse orthogonal to the major radius, or the "orthogonal minor radius", aligned with the z-axis
+
+        Attributes
+        ----------
+        TODO: Do you define the effective attributes that the user sees here, or include the private facing ones? I assume the former, in which case it should basically be identical
+        '''
         self.r = r
         self.a = a
         self.b = b
@@ -28,6 +61,15 @@ class Toroid:# A class representing a toroid using r, a, and b, with additional 
     def ray_intersection_polynomial(
         self, ray_src: np.array, ray_dir: np.array, verbose: bool = False
     ):
+        '''
+        Parameters
+        ----------
+
+        Returns
+        -------
+        A list of floats corresponding to the quartic polynomial whose roots are the distances 
+        along the given ray to its intersections with the torus.
+        '''
         x0 = ray_src[0]
         y0 = ray_src[1]
         z0 = ray_src[2]
