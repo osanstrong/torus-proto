@@ -4,12 +4,15 @@ from collections.abc import Callable
 import numpy as np
 from numpy import linalg as la
 
+'''A module for modeling Elliptic Toroids for raytracing-like applications, specifically Celeritas and ORANGE,
+
+'''
+
 # Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
 # And then also implement the bounding cylinder idea how that changes accuracy/iterations required
 
 
-# A class representing a toroid using r, a, and b, with additional forms like p, A, B
-class Torus:
+class Toroid:# A class representing a toroid using r, a, and b, with additional forms like p, A, B
     def __init__(self, r: float, a: float, b: float):
         self.r = r
         self.a = a

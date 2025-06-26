@@ -1,4 +1,4 @@
-# A utility module to aide comparing different aspects of a torus raytracing implementation.
+# A utility module to aide comparing different aspects of a toroid raytracing implementation.
 # Specifically, aids comparison of different rootfinding algorithms
 
 import math
@@ -297,7 +297,7 @@ def real_roots_ferrari_npdebug(coeffs):
 
 """
 Returns the vertical phi angle (for any arbitrary theta) of a ray passing through the origin,
- such that it scrapes the inside of the torus on both sides.
+ such that it scrapes the inside of the toroid on both sides.
    _\      _
  /   \\  /   \    
 |     |\|     |

@@ -21,7 +21,7 @@ import pprint
 import pytest
 import inspect
 import toroid_ray
-from toroid_ray import Torus
+from toroid_ray import Toroid
 import toroid_util
 
 printer = pprint.PrettyPrinter(indent=4)
@@ -41,7 +41,7 @@ PLOT_COLORS: list[tuple] = [
 
 # Returns arrays x y z representing a toroidal surface with the given precision, that matplotlib can then plot
 # randomize: how much to randomly vary each u and v by, relative to their step sizes
-def plot_toroid(torus: Torus, precision: int = 1000, randomize: float = 0):
+def plot_toroid(toroid: Toroid, precision: int = 1000, randomize: float = 0):
     rand_seed = 1997
     rng = np.random.default_rng(seed=rand_seed)
     rng.uniform(-randomize, randomize, precision)
@@ -52,9 +52,9 @@ def plot_toroid(torus: Torus, precision: int = 1000, randomize: float = 0):
     U += rng.uniform(-randomize, randomize, (precision, precision))
     V += rng.uniform(-randomize, randomize, (precision, precision))
 
-    X = (torus.r + torus.a * np.cos(V)) * np.cos(U)
-    Y = (torus.r + torus.a * np.cos(V)) * np.sin(U)
-    Z = torus.b * np.sin(V)
+    X = (toroid.r + toroid.a * np.cos(V)) * np.cos(U)
+    Y = (toroid.r + toroid.a * np.cos(V)) * np.sin(U)
+    Z = toroid.b * np.sin(V)
     return X, Y, Z
 
 
@@ -65,10 +65,10 @@ def check_equal(a, b, rel_tol=1e-09, abs_tol=0.0):
         assert math.isclose(a[i], b[i], rel_tol=rel_tol, abs_tol=abs_tol)
 
 
-# Plots the given torus and matching lists of ray sources, ray directions, and intersection t lists.
+# Plots the given toroid and matching lists of ray sources, ray directions, and intersection t lists.
 # Can also have showing deferred, to display anything else on top of it.
 def display_intersections(
-    tor: Torus,
+    tor: Toroid,
     rays_src: list[np.array],
     rays_dir: list[np.array],
     t_lists: list[list],
@@ -125,9 +125,9 @@ def display_intersections(
     return ax
 
 
-# Secondary shorthand to test all intersection methods for a given torus-ray combo.
+# Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
-    tor: Torus,
+    tor: Toroid,
     ray_src: np.array,
     ray_dir: np.array,
     known_t_list: list,
@@ -169,7 +169,7 @@ def assert_intersections(
 # Test 1: a toroidal surface is graphed as expected
 def tesnt_create():
     # tor = Toroid(5, 1, 0.3, pos=np.array([5, 5, 5]))
-    tor = Torus(5, 1, 0.3)
+    tor = Toroid(5, 1, 0.3)
     pad = 7
     x, y, z = plot_toroid(tor)
 
@@ -185,7 +185,7 @@ def tesnt_create():
 
 # Test 2: compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
 def test_polynom():
-    tor = Torus(3.05, 1, 0.5)
+    tor = Toroid(3.05, 1, 0.5)
     s = np.array([1.4, 2.9, 2.6]) - np.array([0.96, -0.25, 1.3])
     u = np.array([0.63, -0.2, -1.66])
     u /= la.norm(u)
@@ -207,9 +207,9 @@ def test_solvers():
     return None
 
 
-# Ray through the center shouldn't intersect with the torus
+# Ray through the center shouldn't intersect with the toroid
 def test_center():
-    tor = Torus(5, 1, 1)
+    tor = Toroid(5, 1, 1)
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
     assert len(tor.ray_intersections(s, u, toroid_util.real_roots_ferrari_SE)[0]) == 0
@@ -217,7 +217,7 @@ def test_center():
 
 # Ray starting inside and going out away from center should have 1 intersection
 def test_inside_out():
-    tor = Torus(5, 1, 1)
+    tor = Toroid(5, 1, 1)
     s = np.array([0, 5, 0])
     u = np.array([0, 1, 0])
     # assert len(tor.ray_intersections_np(s, u)) == 1
@@ -227,14 +227,14 @@ def test_inside_out():
 
 # Ray starting inside and going towards center should have 3 intersections
 def test_inside_through_center():
-    tor = Torus(5, 1, 1)
+    tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
     assert_intersections(tor, s, u, [1, 9, 11])
 
 
 def test_inside_through_center_diag():
-    tor = Torus(5, 1, 1)
+    tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
     diag = np.array([0.5**0.5, 0.5**0.5, 0])
@@ -244,7 +244,7 @@ def test_inside_through_center_diag():
 
 
 def test_inside_through_center_diagoffset():
-    tor = Torus(5, 1, 1)
+    tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
     diag = np.array([0.5**0.5, 0.5**0.5 * 0.8, 0.03])
@@ -258,8 +258,8 @@ def test_inside_through_center_diagoffset():
     assert len(inters) == 3
 
 
-# We wanted a test case of a ray going through the center of a torus but at an angle so it grazes two edges of the torus hole
-def internal_graze_angle(tor: Torus):
+# We wanted a test case of a ray going through the center of a toroid but at an angle so it grazes two edges of the toroid hole
+def internal_graze_angle(tor: Toroid):
     th0 = math.asin(tor.a / tor.r)  # Angle if a and b were equal
     v0 = math.cos(th0) * tor.a
     v1 = v0 * (tor.b / tor.a)
@@ -273,7 +273,7 @@ def internal_graze_angle(tor: Torus):
 
 # Test that normals are working properly, just display for now
 def test_normals_pointshot():
-    tor = Torus(9.8733, 4.387, 1.73)
+    tor = Toroid(9.8733, 4.387, 1.73)
     # Fan ray source
     s = np.array([-15, 0, 0])
     thetas = np.linspace(-0.2, 0.2, 3)
@@ -310,9 +310,9 @@ def test_normals_pointshot():
     plt.show()
 
 
-# Second normals test, this time using parametric points surrounding the torus
+# Second normals test, this time using parametric points surrounding the toroid
 def test_normals_wrap():
-    tor = Torus(8.31, 1.12, 2.3)
+    tor = Toroid(8.31, 1.12, 2.3)
     density = 15
     X, Y, Z = plot_toroid(tor, density)
     ax = display_intersections(tor, [], [], [], defer_showing=True)
@@ -330,7 +330,7 @@ def test_normals_wrap():
 
 # Second normals test, same as second but each being slightly offset
 def test_normals_randwrap():
-    tor = Torus(6.77, 1.31, 0.324)
+    tor = Toroid(6.77, 1.31, 0.324)
     density = 5
     X, Y, Z = plot_toroid(tor, density, randomize=1)
     ax = display_intersections(tor, [], [], [], defer_showing=True)
@@ -346,13 +346,13 @@ def test_normals_randwrap():
     plt.show()
 
 
-# Create random assortment of points and test if they're in the torus
+# Create random assortment of points and test if they're in the toroid
 def test_random_piv():
     rand_seed = 1997
     rng = np.random.default_rng(seed=rand_seed)
 
     c = np.array([3.1, 123, 9.77])
-    tor = Torus(13.11, 2.71, 1.997)
+    tor = Toroid(13.11, 2.71, 1.997)
 
     w = (tor.r + tor.a) * 1.3
     h = tor.b + w - (tor.r + tor.a)
@@ -383,12 +383,12 @@ def test_random_piv():
     plt.show()
 
 
-# Test if points on the edge of the torus are considered in / out
+# Test if points on the edge of the toroid are considered in / out
 def test_random_edge():
     rand_seed = 1997
     rng = np.random.default_rng(seed=rand_seed)
 
-    tor = Torus(13.11, 2.71, 1.997)
+    tor = Toroid(13.11, 2.71, 1.997)
 
     w = (tor.r + tor.a) * 1.3
     h = tor.b + w - (tor.r + tor.a)
