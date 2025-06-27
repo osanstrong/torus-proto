@@ -65,12 +65,73 @@ def check_equal(a, b, rel_tol=1e-09, abs_tol=0.0):
         assert math.isclose(a[i], b[i], rel_tol=rel_tol, abs_tol=abs_tol)
 
 
+# Plots the given toroid and matching lists of ray sources, ray directions, and intersection t lists.
+# Can also have showing deferred, to display anything else on top of it.
+def display_intersections(
+    tor: Toroid,
+    rays_src: list[np.array],
+    rays_dir: list[np.array],
+    t_lists: list[list],
+    defer_showing: bool = False,
+    manual_colors: list[tuple] = None,
+):
+    # print("directions given: " + str(rays_dir))
+    if manual_colors is None:
+        manual_colors = [None] * len(t_lists)
+
+    pad = (tor.r + tor.a) * 1.25
+    x, y, z = plot_toroid(tor, precision=100)
+
+    fig = plt.figure()
+    # ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection="3d", computed_zorder=False)
+    ax.axes.set_xlim3d(left=-pad, right=pad)
+    ax.axes.set_ylim3d(bottom=-pad, top=pad)
+    ax.axes.set_zlim3d(bottom=-pad, top=pad)
+    ax.plot_surface(x, y, z, antialiased=True, color="orange", zorder=0)
+    for i in range(len(rays_src)):
+        ts = np.array(t_lists[i])
+        # Check out the manual color,
+        col = manual_colors[i]
+        if col is None:  # And set procedurally if unspecified
+            col = PLOT_COLORS[len(ts)]
+        s = rays_src[i]
+        d = rays_dir[i].astype(np.dtype("float64"))
+        # print("direction pre-norm: " + str(d))
+        d /= la.norm(d)
+        # print("direction post-norm: " + str(d))
+        t_ray = pad * 2
+        e = s + d * t_ray
+        # ax.set_color_cycle([col])
+        ax.plot([s[0], e[0]], [s[1], e[1]], [s[2], e[2]], color=col, zorder=1)  # Ray
+        # ax.text(e[0], e[1], e[2],"Ray #"+str(i)+", "+str(len(ts))+" int.s",color=col) #Label
+
+        # Intersections
+        ax.scatter(
+            s[0] + ts * d[0],
+            s[1] + ts * d[1],
+            s[2] + ts * d[2],
+            "zorder=3\nalpha=1",
+            c=to_hex(col),
+        )
+    # ax.legend()
+    method = inspect.stack()[1]
+    supermethod = inspect.stack()[2]
+    plt.title(
+        f"Test: {method.function} (in {supermethod.function})"
+    )  # Label with name of method that called this one
+    if not defer_showing:
+        plt.show()
+    return ax
+
+
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
     tor: Toroid,
     ray_src: np.array,
     ray_dir: np.array,
     known_t_list: list,
+    show_results: bool = PLOT_RESULTS,
 ):
     # print("direction: " + str(ray_dir))
     # ray_dir /= la.norm(ray_dir)
@@ -93,6 +154,11 @@ def assert_intersections(
 
     # Colors, draw known t in a specific color to distinguish from the other ones
     colors = [(0, 0, 0)] + [None] * (len(t_lists) - 1)
+
+    if show_results:
+        display_intersections(
+            tor, [ray_src] * len(t_lists), [ray_dir] * len(t_lists), t_lists=t_lists
+        )
 
     # After display, run actual test
     check_equal(sorted(np_t_list), known_t_list)
@@ -188,6 +254,7 @@ def test_inside_through_center_diagoffset():
     inters, inter_locals = tor.ray_intersections(
         s, u, toroid_util.real_roots_ferrari_SE
     )
+    display_intersections(tor, [s], [u], [inters])
     assert len(inters) == 3
 
 
@@ -202,6 +269,157 @@ def internal_graze_angle(tor: Toroid):
 
 
 # Test some grazing cases
+
+
+# Test that normals are working properly, just display for now
+def test_normals_pointshot():
+    tor = Toroid(9.8733, 4.387, 1.73)
+    # Fan ray source
+    s = np.array([-15, 0, 0])
+    thetas = np.linspace(-0.2, 0.2, 3)
+    phis = np.linspace(-0.1, 0.1, 3)
+    us = []
+    t_sets = []
+    p_sets = []
+    for th in thetas:
+        for phi in phis:
+            u = np.array(
+                [
+                    math.cos(phi) * math.cos(th),
+                    math.cos(phi) * math.sin(th),
+                    math.sin(phi),
+                ]
+            )
+            us.append(u)
+            t_set, t_info = tor.ray_intersections(
+                s, u, toroid_util.real_roots_ferrari_SE
+            )
+            t_sets.append(t_set)
+            p_set, p_info = tor.ray_intersection_points(
+                s, u, toroid_util.real_roots_ferrari_SE
+            )
+            p_sets.append(p_set)
+    ss = [s] * len(us)
+    ax = display_intersections(tor, ss, us, t_sets, defer_showing=True)
+    # ax = display_intersections(tor, ss, us, t_sets, defer_showing=True)
+    for p_set in p_sets:
+        for p in p_set:
+            n = tor.surface_normal(p)
+            o = p + n * 4
+            ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
+    plt.show()
+
+
+# Second normals test, this time using parametric points surrounding the toroid
+def test_normals_wrap():
+    tor = Toroid(8.31, 1.12, 2.3)
+    density = 15
+    X, Y, Z = plot_toroid(tor, density)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    for i, j in itertools.product(range(density), range(density)):
+        pos = np.array([X[i, j], Y[i, j], Z[i, j]])
+        norm = tor.surface_normal(pos)
+        if norm is None:
+            continue
+        outer_norm = pos + norm * 3
+        p = pos
+        o = outer_norm
+        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
+    plt.show()
+
+
+# Second normals test, same as second but each being slightly offset
+def test_normals_randwrap():
+    tor = Toroid(6.77, 1.31, 0.324)
+    density = 5
+    X, Y, Z = plot_toroid(tor, density, randomize=1)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    for i, j in itertools.product(range(density), range(density)):
+        pos = np.array([X[i, j], Y[i, j], Z[i, j]])
+        norm = tor.surface_normal(pos)
+        if norm is None:
+            continue
+        outer_norm = pos + norm * 3
+        p = pos
+        o = outer_norm
+        ax.plot([p[0], o[0]], [p[1], o[1]], [p[2], o[2]], zorder=3)
+    plt.show()
+
+
+# Create random assortment of points and test if they're in the toroid
+def test_random_piv():
+    rand_seed = 1997
+    rng = np.random.default_rng(seed=rand_seed)
+
+    c = np.array([3.1, 123, 9.77])
+    tor = Toroid(13.11, 2.71, 1.997)
+
+    w = (tor.r + tor.a) * 1.3
+    h = tor.b + w - (tor.r + tor.a)
+
+    num_points = 1000
+    x = rng.uniform(c[0] - w, c[0] + w, num_points)
+    y = rng.uniform(c[1] - w, c[1] + w, num_points)
+    z = rng.uniform(c[2] - h, c[2] + h, num_points)
+
+    inside = [[], [], []]
+    outside = [[], [], []]
+    for i in range(num_points):
+        point = np.array([x[i], y[i], z[i]])
+        if tor.point_in_volume(point):
+            inside[0].append(x[i])
+            inside[1].append(y[i])
+            inside[2].append(z[i])
+        else:
+            outside[0].append(x[i])
+            outside[1].append(y[i])
+            outside[2].append(z[i])
+
+    inside = np.array(inside)
+    outside = np.array(outside)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    ax.scatter(inside[0, :], inside[1, :], inside[2, :], c=to_hex((0, 0.8, 0)))
+    ax.scatter(outside[0, :], outside[1, :], outside[2, :], c=to_hex((0.9, 0, 0)))
+    plt.show()
+
+
+# Test if points on the edge of the toroid are considered in / out
+def test_random_edge():
+    rand_seed = 1997
+    rng = np.random.default_rng(seed=rand_seed)
+
+    tor = Toroid(13.11, 2.71, 1.997)
+
+    w = (tor.r + tor.a) * 1.3
+    h = tor.b + w - (tor.r + tor.a)
+
+    num_points = 1000
+    U = rng.uniform(0, 2 * np.pi, num_points)
+    V = rng.uniform(0, 2 * np.pi, num_points)
+    x = (tor.r + tor.a * np.cos(V)) * np.cos(U)
+    y = (tor.r + tor.a * np.cos(V)) * np.sin(U)
+    z = tor.b * np.sin(V)
+
+    inside = [[], [], []]
+    outside = [[], [], []]
+    for i in range(num_points):
+        point = np.array([x[i], y[i], z[i]])
+        if tor.point_in_volume(point):
+            inside[0].append(x[i])
+            inside[1].append(y[i])
+            inside[2].append(z[i])
+        else:
+            outside[0].append(x[i])
+            outside[1].append(y[i])
+            outside[2].append(z[i])
+
+    inside = np.array(inside)
+    outside = np.array(outside)
+    ax = display_intersections(tor, [], [], [], defer_showing=True)
+    ax.scatter(inside[0, :], inside[1, :], inside[2, :], c=to_hex((0, 0.8, 0)))
+    ax.scatter(outside[0, :], outside[1, :], outside[2, :], c=to_hex((0.9, 0, 0)))
+    plt.show()
+
 
 def test_rootfinders_random():
 
