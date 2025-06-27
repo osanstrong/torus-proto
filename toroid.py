@@ -167,7 +167,7 @@ class Toroid:
         points = [ray_src + t*ray_dir for t in t_vals]
         return points, t_locals
 
-    def distance_to_surface( 
+    def distance_to_boundary( 
         self,
         ray_src: Iterable[float],
         ray_dir: Iterable[float],
