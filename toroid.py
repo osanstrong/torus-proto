@@ -48,11 +48,65 @@ class Toroid:
         ----------
         TODO: Do you define the effective attributes that the user sees here, or include the private facing ones? I assume the former, in which case it should basically be identical
         '''
-        self.r = r
-        self.a = a
-        self.b = b
+        self._r = r
+        self._a = a
+        self._b = b
 
         # From Graphics Gems, form which is more convenient for solving ray intersection
+        self._p = (a*a) / (b*b)
+        self._A = 4*r*r
+        self._B = r*r  - a*a
+
+    @property
+    def r(self):
+        return self._r
+
+    @property
+    def a(self):
+        return self._a
+
+    @property
+    def b(self):
+        return self._b
+
+    @property
+    def p(self):
+        return self._p
+
+    @property
+    def A(self):
+        return self._A
+
+    @property
+    def B(self):
+        return self._B
+    
+    @r.setter
+    def r(self, value):
+        self._r = value
+        r = self.r
+        a = self.a
+        b = self.b
+        self._p = (a*a) / (b*b)
+        self._A = 4*r*r
+        self._B = r*r  - a*a
+
+    @a.setter
+    def a(self, value):
+        self._a = value
+        r = self.r
+        a = self.a
+        b = self.b
+        self._p = (a*a) / (b*b)
+        self._A = 4*r*r
+        self._B = r*r  - a*a
+    
+    @b.setter
+    def b(self, value):
+        self._b = value
+        r = self.r
+        a = self.a
+        b = self.b
         self._p = (a*a) / (b*b)
         self._A = 4*r*r
         self._B = r*r  - a*a
@@ -89,12 +143,12 @@ class Toroid:
 
         # Intermediate terms, from Graphics Gems
         f = 1 - az*az
-        g = f + self._p*az*az
+        g = f + self.p*az*az
         l = 2 * (x0*ax + y0*ay)
         t = x0*x0 + y0*y0
-        q = self._A / (g*g)
-        m = (l + 2*self._p*z0*az) / g
-        u = (t + self._p*z0*z0 + self._B) / g
+        q = self.A / (g*g)
+        m = (l + 2*self.p*z0*az) / g
+        u = (t + self.p*z0*z0 + self.B) / g
         
 
         # Final polynomial coeffs
