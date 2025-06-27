@@ -248,7 +248,9 @@ class Toroid:
             a copy of its local variables
         
         '''
-        return min(self.ray_intersections(ray_src, ray_dir, quart_solver))
+        inters = self.ray_intersections(ray_src, ray_dir, quart_solver)[0]
+        if len(inters) == 0: return None
+        return min(inters)
 
     def surface_normal(self, pos: Iterable[float]) -> np.array:
         '''Solves for the vector normal to the torus surface at the given x, y, and z, and
@@ -276,7 +278,7 @@ class Toroid:
         n /= length
         return n
 
-    def point_in_volume(self, pos: Iterable[float]) -> int:
+    def point_sense(self, pos: Iterable[float]) -> int:
         '''Evaluates if the given point is inside, outside, or on the toroid surface.
         
         Returns

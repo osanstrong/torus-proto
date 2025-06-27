@@ -73,6 +73,7 @@ def test_center():
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
     assert len(tor.ray_intersections(s, u, real_roots_numpy)[0]) == 0
+    assert tor.distance_to_boundary(s, u, real_roots_numpy) is None
 
 
 # Ray starting inside and going out away from center should have 1 intersection
@@ -81,6 +82,7 @@ def test_inside_out():
     s = np.array([0, 5, 0])
     u = np.array([0, 1, 0])
     assert_intersections(tor, s, u, [1])
+    assert math.isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
 
 
 # Ray starting inside and going towards center should have 3 intersections
@@ -89,6 +91,7 @@ def test_inside_through_center():
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
     assert_intersections(tor, s, u, [1, 9, 11])
+    assert math.isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
 
 
 # Repeat but along the a 45 degree diagonal
@@ -100,6 +103,7 @@ def test_inside_through_center_diag():
     s = 5 * diag
     u = -1 * diag
     assert_intersections(tor, s, u, [1, 9, 11])
+    assert math.isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
 
 
 # Repeat but with a further offset
@@ -117,3 +121,63 @@ def test_inside_through_center_diagoffset():
     assert len(inters) == 3
 
 
+# Ray straight down
+def test_vertical():
+    tor = Toroid(5, 1, 1)
+    s = np.array([0, 5.0, 2.3])
+    u_up = np.array([0, 0, 1.0])
+    u_down = np.array([0, 0, -1.0])
+    assert len(tor.ray_intersections(s, u_up, real_roots_numpy)[0]) == 0
+    assert tor.distance_to_boundary(s, u_up, real_roots_numpy) is None
+    assert_intersections(tor, s, u_down, [1.3, 3.3])
+    assert math.isclose(tor.distance_to_boundary(s, u_down, real_roots_numpy), 1.3)
+
+
+# Points that should be inside
+def test_inside_points():
+    tor = Toroid(5, 1, 1)
+    should_be_inside: list[list[float]] = [
+        [5.0, 0, 0],
+        [0, 5.0, 0],
+        [5.0, 0, 0.9],
+        [5.0 * 0.5**0.5, 5.0 * 0.5**0.5, 0.9]
+    ]
+    for pos in should_be_inside:
+        assert tor.point_sense(pos) == -1
+
+
+# Points that should be outside
+def test_outside_points():
+    tor = Toroid(5, 1, 1)
+    should_be_outside: list[list[float]] = [
+        [0,0,0],
+        [0,3.9,0],
+        [3.9,0,0],
+        [-3.9,0,0],
+        [5.0,0,1.1],
+        [6.1,0,0]
+    ]
+    for pos in should_be_outside:
+        assert tor.point_sense(pos) == 1
+
+
+#Points that should be on the edge
+def test_edge_points():
+    tor = Toroid(5,1,1)
+    should_be_on: list[list[float]] = [
+        [5.0,0,1.0],
+        [4.0,0,0],
+        [6.0,0,0]
+    ]
+    for pos in should_be_on:
+        assert tor.point_sense(pos) == 0
+
+#Easily tested normal vectors
+def test_normals_basic():
+    tor = Toroid(5,1,1)
+    check_equal(tor.surface_normal([5.0,0,1.0]), np.array([0,0,1.0]))
+    check_equal(tor.surface_normal([5.0,0,-1.0]), np.array([0,0,-1.0]))
+    check_equal(tor.surface_normal([6.0,0,0]), np.array([1.0,0,0]))
+    check_equal(tor.surface_normal([4.0,0,0]), np.array([-1.0,0,0]))
+    check_equal(tor.surface_normal([0,6.0,0]), np.array([0,1.0,0]))
+    check_equal(tor.surface_normal([0,4.0,0]), np.array([0,-1.0,0]))
