@@ -1,5 +1,3 @@
-# A python file/module for prototyping Celeritas/ORANGE raytracing functions of toroids
-# Ray-torus intersection formulae from Graphics Gems II, Gem V.2 by Joseph M Cychosz, Purdue University
 from collections.abc import Callable, Iterable, Mapping
 import math
 import numpy as np
@@ -11,10 +9,12 @@ This module contains a class "Toroid" which represents an elliptical Toroid surf
  - The first intersection (if any) with the surface along a given ray
  - The sense of a point relative to the torus, whether inside, on, or outside
  - The normal vector to the surface at a given point
-'''
 
-# Suggestion: Implement Geant4 polynomial solver, the new solver that openMC uses, and the quartic equation for a simple but robust comparison
-# And then also implement the bounding cylinder idea how that changes accuracy/iterations required
+Note
+----
+Ray-torus intersection and normal formulae taken from Graphics Gems II, Gem V.2 by Joseph M Cychosz, Purdue University
+
+'''
 
 
 class Toroid:
@@ -53,12 +53,12 @@ class Toroid:
         self.b = b
 
         # From Graphics Gems, form which is more convenient for solving ray intersection
-        self._p = (a * a) / (b * b)
-        self._A = 4 * r * r
-        self._B = r * r - a * a
+        self._p = (a*a) / (b*b)
+        self._A = 4*r*r
+        self._B = r*r  - a*a
 
     def _ray_intersection_polynomial(
-        self, ray_src: Iterable[float], ray_dir: Iterable[float], verbose: bool = False
+        self, ray_src: Iterable[float], ray_dir: Iterable[float]
     ):
         '''Finds the coefficients of a polynomial representing the given ray's intersection 
         with this torus. The real roots, if any, of this polynomial represent distances along
@@ -88,28 +88,21 @@ class Toroid:
         az = ray_dir[2]
 
         # Intermediate terms, from Graphics Gems
-        f = 1 - az * az
-        g = f + self.p * az * az
-        l = 2 * (x0 * ax + y0 * ay)
-        t = x0 * x0 + y0 * y0
-        q = self.A / (g * g)
-        m = (l + 2 * self.p * z0 * az) / g
-        u = (t + self.p * z0 * z0 + self.B) / g
-        if verbose:
-            print("f: ", f)
-            print("g: ", g)
-            print("l: ", l)
-            print("t: ", t)
-            print("q: ", q)
-            print("m: ", m)
-            print("u: ", u)
+        f = 1 - az*az
+        g = f + self._p*az*az
+        l = 2 * (x0*ax + y0*ay)
+        t = x0*x0 + y0*y0
+        q = self._A / (g*g)
+        m = (l + 2*self._p*z0*az) / g
+        u = (t + self._p*z0*z0 + self._B) / g
+        
 
         # Final polynomial coeffs
         c4 = 1
-        c3 = 2 * m
-        c2 = m * m + 2 * u - q * f
-        c1 = 2 * m * u - q * l
-        c0 = u * u - q * t
+        c3 = 2*m
+        c2 = m*m + 2*u - q*f
+        c1 = 2*m*u - q*l
+        c0 = u*u - q*t
         return np.array([c4, c3, c2, c1, c0])
 
 
@@ -139,7 +132,7 @@ class Toroid:
             as returned by ~ray_intersection_polynomial), and returns its real roots, alongside
             a copy of its local variables
         '''
-        poly = self._ray_intersection_polynomial(ray_src, ray_dir, verbose)
+        poly = self._ray_intersection_polynomial(ray_src, ray_dir)
         t_vals, solver_locals = quart_solver(poly)
         intersections: list = [t for t in t_vals if t > 0]
         return intersections, solver_locals
@@ -170,8 +163,7 @@ class Toroid:
             as returned by ~ray_intersection_polynomial), and returns its real roots, alongside
             a copy of its local variables
         '''
-        t_vals, t_locals = self.ray_intersections(ray_src, ray_dir, quart_solver, 
-        verbose=verbose)
+        t_vals, t_locals = self.ray_intersections(ray_src, ray_dir, quart_solver)
         points = [ray_src + t*ray_dir for t in t_vals]
         return points, t_locals
 
@@ -221,9 +213,9 @@ class Toroid:
         y = pos[1]
         z = pos[2]
 
-        d = (x * x + y * y) ** 0.5
-        f = 2 * (d - self.r) / (d * self.a * self.a)
-        n = np.array([x * f, y * f, (2 * z) / (self.b * self.b)])
+        d = (x*x + y*y) ** 0.5
+        f = 2 * (d-self.r) / (d*self.a*self.a)
+        n = np.array([x*f, y*f, (2*z) / (self.b*self.b)])
         length = la.norm(n)
         if length == 0:
             return None
