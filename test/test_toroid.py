@@ -20,8 +20,8 @@ from matplotlib.colors import to_hex
 import pprint
 import pytest
 import inspect
-import toroid_ray
-from toroid_ray import Toroid
+import toroid
+from toroid import Toroid
 import toroid_util
 
 printer = pprint.PrettyPrinter(indent=4)
@@ -161,9 +161,9 @@ def assert_intersections(
         )
 
     # After display, run actual test
-    check_equal(np_t_list, known_t_list)
-    check_equal(fr_t_list, known_t_list)
-    check_equal(fr_t_list_SE, known_t_list)
+    check_equal(sorted(np_t_list), known_t_list)
+    check_equal(sorted(fr_t_list), known_t_list)
+    check_equal(sorted(fr_t_list_SE), known_t_list)
 
 
 # Test 1: a toroidal surface is graphed as expected
@@ -190,7 +190,7 @@ def test_polynom():
     u = np.array([0.63, -0.2, -1.66])
     u /= la.norm(u)
 
-    poly = tor.ray_intersection_polynomial(s, u, verbose=True)
+    poly = tor._ray_intersection_polynomial(s, u)
     desmos = np.array([1, -5.60371151562, 21.4844076830, -38.1674209108, 19.9891068153])
 
     check_equal(poly, desmos)
@@ -295,8 +295,8 @@ def test_normals_pointshot():
                 s, u, toroid_util.real_roots_ferrari_SE
             )
             t_sets.append(t_set)
-            p_set, p_info = tor.ray_intersections(
-                s, u, toroid_util.real_roots_ferrari_SE, return_points=True
+            p_set, p_info = tor.ray_intersection_points(
+                s, u, toroid_util.real_roots_ferrari_SE
             )
             p_sets.append(p_set)
     ss = [s] * len(us)
