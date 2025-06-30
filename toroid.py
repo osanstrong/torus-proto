@@ -3,25 +3,28 @@ import math
 import numpy as np
 from numpy import linalg as la
 
-'''A module for modeling Elliptic Toroid surfaces for raytracing-like applications, specifically Celeritas and ORANGE.
+'''A module for modeling Elliptic Toroid surfaces for raytracing-like applications, 
+specifically Celeritas and ORANGE.
 
-This module contains a class "Toroid" which represents an elliptical Toroid surface, with three functions necessary for raytracing:
+This module contains a class "Toroid" which represents an elliptical Toroid surface, with three
+functions necessary for raytracing:
  - The first intersection (if any) with the surface along a given ray
  - The sense of a point relative to the torus, whether inside, on, or outside
  - The normal vector to the surface at a given point
 
 Note
 ----
-Ray-torus intersection and normal formulae taken from Graphics Gems II, Gem V.2 by Joseph M Cychosz, Purdue University
+Ray-torus intersection and normal formulae taken from Graphics Gems II, Gem V.2 by Joseph M Cychosz, 
+Purdue University
 
 '''
 
 
 class Toroid:
     '''A class representing a z-axis oriented, origin-centered elliptical toroid in terms of: 
-        tor_rad, the major radius (along xy plane); 
-        hor_rad, the radius of the rotated ellipse which is parallel to the major radius (xy plane); and 
-        ver_rad, the ellipse radius orthogonal to the major radius (z axis). 
+        tor_rad, the major radius (along xy plane)
+        hor_rad, the radius of the rotated ellipse which is parallel to the major radius (xy plane)
+        ver_rad, the ellipse radius orthogonal to the major radius (z axis).
         
     Class objects also contain three methods for the three surface functions: distance from point
     along ray, surface sense at point, and surface normal at point.
@@ -29,11 +32,11 @@ class Toroid:
     Attributes 
     ----------
     tor_rad : float
-        The radius from the origin of the toroid to the center of the revolved ellipse, or the "Major Radius", along the xy plane
+        The radius from toroid origin to the center of the revolved ellipse, along the xy plane
     hor_rad : float
-        The horizontal radius of the revolved ellipse, or the "parallel minor radius", along the xy plane
+        The horizontal radius of the revolved ellipse, along the xy plane
     ver_rad : float
-        The vertical radius of the revolved ellipse, or the "orthogonal minor radius", aligned with the z-axis
+        The vertical radius of the revolved ellipse, aligned with the z-axis
     p : float, access only
         A parameter, a^2/b^2, for convenient ray intersection
     a0 : float, access only
@@ -45,7 +48,8 @@ class Toroid:
     Note
     ----
     The class also contains a secondary representation of its properties in terms of 3 parameters
-    p, a0, and b0, such that (x^2+y^2 + pz^2 + b0^2) - a0(x^2+y^2), for the purpose of solving ray intersection. 
+    p, a0, and b0, such that (x^2+y^2 + pz^2 + b0^2) - a0(x^2+y^2), for the purpose of solving 
+    ray intersection. 
     
     '''
     def __init__(self, tor_rad: float, hor_rad: float, ver_rad: float):
@@ -53,11 +57,11 @@ class Toroid:
         Parameters
         ----------
         tor_rad : float
-            The radius from the origin of the toroid to the center of the revolved ellipse, or the "Major Radius", along the xy plane
+            The radius from toroid origin to the center of the revolved ellipse, along the xy plane
         hor_rad : float
-            The radius of the revolved ellipse aligned with the major radius, or the "parallel minor radius", along the xy plane
+            The horizontal radius of the revolved ellipse, along the xy plane
         ver_rad : float
-            The radius of the revolved ellipse orthogonal to the major radius, or the "orthogonal minor radius", aligned with the z-axis
+            The ellipse radius orthogonal to the major radius (z axis).
         '''
         self._tor_rad = tor_rad
         self._hor_rad = hor_rad
@@ -274,7 +278,8 @@ class Toroid:
         Parameters
         ----------
         pos : Iterable[float], length 3
-            The x, y, and z of the position to find a surface vector at. Presumed to be on the surface.
+            The x, y, and z of the position to find a surface vector at. 
+            Presumed to be on the surface.
         '''
         x = pos[0]
         y = pos[1]
