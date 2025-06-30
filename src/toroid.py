@@ -100,7 +100,7 @@ class Toroid:
         return self._b0
 
 
-    def ray_intersections(
+    def ray_intersection_distances(
         self,
         ray_pos: Iterable[float],
         ray_dir: Iterable[float],
@@ -156,7 +156,7 @@ class Toroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
-        t_vals = self.ray_intersections(ray_pos, ray_dir, quart_solver)
+        t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
         return [ray_pos + t*ray_dir for t in sorted(t_vals)]
 
     def distance_to_boundary( 
@@ -186,9 +186,9 @@ class Toroid:
             a copy of its local variables
         
         '''
-        inters = self.ray_intersections(ray_pos, ray_dir, quart_solver)
-        if len(inters) == 0: return None
-        return min(inters)
+        distances = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
+        if len(distances) == 0: return None
+        return min(distances)
 
     def surface_normal(self, pos: Iterable[float]) -> np.array:
         '''Solves for the vector normal to the torus surface at the given x, y, and z, and

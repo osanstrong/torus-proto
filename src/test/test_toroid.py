@@ -30,7 +30,7 @@ def assert_intersections(
     ray_dir: np.array,
     known_t_list: list,
 ):
-    np_t_list = tor.ray_intersections(ray_src, ray_dir, real_roots_numpy)
+    np_t_list = tor.ray_intersection_distances(ray_src, ray_dir, real_roots_numpy)
     assert_close(sorted(np_t_list), known_t_list)
 
 # Like assert_intersections, but testing the method which returns final points instead of distances
@@ -50,7 +50,7 @@ def test_center():
     tor = Toroid(5, 1, 1)
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
-    assert len(tor.ray_intersections(s, u, real_roots_numpy)) == 0
+    assert len(tor.ray_intersection_distances(s, u, real_roots_numpy)) == 0
     assert tor.distance_to_boundary(s, u, real_roots_numpy) is None
 
 
@@ -96,7 +96,7 @@ def test_inside_through_center_diagoffset():
     diag /= norm(diag)
     s = 5 * diag
     u = -1 * diag
-    inters = tor.ray_intersections(
+    inters = tor.ray_intersection_distances(
         s, u, real_roots_numpy
     )
     assert len(inters) == 3
@@ -108,7 +108,7 @@ def test_vertical():
     s = np.array([0, 5.0, 2.3])
     u_up = np.array([0, 0, 1.0])
     u_down = np.array([0, 0, -1.0])
-    assert len(tor.ray_intersections(s, u_up, real_roots_numpy)) == 0
+    assert len(tor.ray_intersection_distances(s, u_up, real_roots_numpy)) == 0
     assert tor.distance_to_boundary(s, u_up, real_roots_numpy) is None
     assert_intersections(tor, s, u_down, [1.3, 3.3])
     assert_intersection_points(tor, s, u_down, [np.array([0,5.0,1.0]), np.array([0,5.0,-1.0])])
