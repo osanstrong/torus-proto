@@ -4,7 +4,6 @@ import math
 import random
 import numpy as np
 import numpy.linalg as la
-import pytest
 import inspect
 import src.toroid
 from src.toroid import Toroid
