@@ -19,97 +19,108 @@ Ray-torus intersection and normal formulae taken from Graphics Gems II, Gem V.2 
 
 class Toroid:
     '''A class representing a z-axis oriented, origin-centered elliptical toroid in terms of: 
-        r, the major radius (along xy plane); 
-        a, the radius of the rotated ellipse which is parallel to the major radius (xy plane); and 
-        b, the ellipse radius orthogonal to the major radius (z axis). 
+        tor_rad, the major radius (along xy plane); 
+        hor_rad, the radius of the rotated ellipse which is parallel to the major radius (xy plane); and 
+        ver_rad, the ellipse radius orthogonal to the major radius (z axis). 
         
     Class objects also contain three methods for the three surface functions: distance from point
     along ray, surface sense at point, and surface normal at point.
 
+    Attributes 
+    ----------
+    tor_rad : float
+        The radius from the origin of the toroid to the center of the revolved ellipse, or the "Major Radius", along the xy plane
+    hor_rad : float
+        The horizontal radius of the revolved ellipse, or the "parallel minor radius", along the xy plane
+    ver_rad : float
+        The vertical radius of the revolved ellipse, or the "orthogonal minor radius", aligned with the z-axis
+    p : float, access only
+        A parameter, a^2/b^2, for convenient ray intersection
+    a0 : float, access only
+        A parameter, 4r^2, for convenient ray intersection
+    b0 : float, access only
+        A parameter (r^2-a^2), for convenient ray intersection
+        
+
     Note
     ----
     The class also contains a secondary representation of its properties in terms of 3 parameters
-    p, A, and B, for the purpose of solving ray intersection. However, accessing these parameters
-    directly is highly discouraged, as their precise implementation is non-final.
+    p, a0, and b0, such that (x^2+y^2 + pz^2 + b0^2) - a0(x^2+y^2), for the purpose of solving ray intersection. 
     
     '''
-    def __init__(self, r: float, a: float, b: float):
+    def __init__(self, tor_rad: float, hor_rad: float, ver_rad: float):
         '''
         Parameters
         ----------
-        r : float
+        tor_rad : float
             The radius from the origin of the toroid to the center of the revolved ellipse, or the "Major Radius", along the xy plane
-        a : float
+        hor_rad : float
             The radius of the revolved ellipse aligned with the major radius, or the "parallel minor radius", along the xy plane
-        b : float
+        ver_rad : float
             The radius of the revolved ellipse orthogonal to the major radius, or the "orthogonal minor radius", aligned with the z-axis
-
-        Attributes
-        ----------
-        TODO: Do you define the effective attributes that the user sees here, or include the private facing ones? I assume the former, in which case it should basically be identical
         '''
-        self._r = r
-        self._a = a
-        self._b = b
+        self._tor_rad = tor_rad
+        self._hor_rad = hor_rad
+        self._ver_rad = ver_rad
 
         # From Graphics Gems, form which is more convenient for solving ray intersection
-        self._p = (a*a) / (b*b)
-        self._A = 4*r*r
-        self._B = r*r  - a*a
+        self._p = (hor_rad*hor_rad) / (ver_rad*ver_rad)
+        self._a0 = 4*tor_rad*tor_rad
+        self._b0 = tor_rad*tor_rad  - hor_rad*hor_rad
 
     @property
-    def r(self):
-        return self._r
+    def tor_rad(self):
+        return self._tor_rad
 
     @property
-    def a(self):
-        return self._a
+    def hor_rad(self):
+        return self._hor_rad
 
     @property
-    def b(self):
-        return self._b
+    def ver_rad(self):
+        return self._ver_rad
 
     @property
     def p(self):
         return self._p
 
     @property
-    def A(self):
-        return self._A
+    def a0(self):
+        return self._a0
 
     @property
-    def B(self):
-        return self._B
+    def b0(self):
+        return self._b0
     
-    @r.setter
-    def r(self, value):
-        self._r = value
-        r = self.r
-        a = self.a
-        b = self.b
+    @tor_rad.setter
+    def tor_rad(self, value):
+        self._tor_rad = value
+        r = self.tor_rad
+        a = self.hor_rad
+        b = self.ver_rad
         self._p = (a*a) / (b*b)
-        self._A = 4*r*r
-        self._B = r*r  - a*a
+        self._a0 = 4*r*r
+        self._b0 = r*r  - a*a
 
-    @a.setter
-    def a(self, value):
-        self._a = value
-        r = self.r
-        a = self.a
-        b = self.b
+    @hor_rad.setter
+    def hor_rad(self, value):
+        self._hor_rad = value
+        r = self.tor_rad
+        a = self.hor_rad
+        b = self.ver_rad
         self._p = (a*a) / (b*b)
-        self._A = 4*r*r
-        self._B = r*r  - a*a
+        self._a0 = 4*r*r
+        self._b0 = r*r  - a*a
     
-    @b.setter
-    def b(self, value):
-        self._b = value
-        r = self.r
-        a = self.a
-        b = self.b
+    @ver_rad.setter
+    def ver_rad(self, value):
+        self._ver_rad = value
+        r = self.tor_rad
+        a = self.hor_rad
+        b = self.ver_rad
         self._p = (a*a) / (b*b)
-        self._A = 4*r*r
-        self._B = r*r  - a*a
+        self._a0 = 4*r*r
+        self._b0 = r*r  - a*a
 
     def _ray_intersection_polynomial(
         self, ray_src: Iterable[float], ray_dir: Iterable[float]
@@ -146,9 +157,9 @@ class Toroid:
         g = f + self.p*az*az
         l = 2 * (x0*ax + y0*ay)
         t = x0*x0 + y0*y0
-        q = self.A / (g*g)
+        q = self.a0 / (g*g)
         m = (l + 2*self.p*z0*az) / g
-        u = (t + self.p*z0*z0 + self.B) / g
+        u = (t + self.p*z0*z0 + self.b0) / g
         
 
         # Final polynomial coeffs
@@ -269,9 +280,13 @@ class Toroid:
         y = pos[1]
         z = pos[2]
 
+        r = self.tor_rad
+        a = self.hor_rad
+        b = self.ver_rad
+
         d = (x*x + y*y) ** 0.5
-        f = 2 * (d-self.r) / (d*self.a*self.a)
-        n = np.array([x*f, y*f, (2*z) / (self.b*self.b)])
+        f = 2 * (d-r) / (d*a*a)
+        n = np.array([x*f, y*f, (2*z) / (b*b)])
         length = la.norm(n)
         if length == 0:
             return None
@@ -293,9 +308,9 @@ class Toroid:
         x = pos[0]
         y = pos[1]
         z = pos[2]
-        r = self.r
-        a = self.a
-        b = self.b
+        r = self.tor_rad
+        a = self.hor_rad
+        b = self.ver_rad
         val = ((x*x + y*y + z*z*(a*a)/(b*b) + (r*r - a*a))**2
                - (4*r*r) * (x*x + y*y))
         threshold = 1e-9
