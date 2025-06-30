@@ -8,6 +8,7 @@ from src.toroid import Toroid
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
+COS_45 = np.sqrt(0.5)
 
 # Quick shorthand to check if two arrays are equivalent
 def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
@@ -70,7 +71,7 @@ def test_inside_through_center_diag():
     tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
-    diag = np.array([0.5**0.5, 0.5**0.5, 0])
+    diag = np.array([COS_45, COS_45, 0])
     s = 5 * diag
     u = -1 * diag
     assert_intersections(tor, s, u, [1, 9, 11])
@@ -82,7 +83,7 @@ def test_inside_through_center_diagoffset():
     tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
-    diag = np.array([0.5**0.5, 0.5**0.5 * 0.8, 0.03])
+    diag = np.array([COS_45, COS_45 * 0.8, 0.03])
     diag /= norm(diag)
     s = 5 * diag
     u = -1 * diag
@@ -111,7 +112,7 @@ def test_inside_points():
         [5.0, 0, 0],
         [0, 5.0, 0],
         [5.0, 0, 0.9],
-        [5.0 * 0.5**0.5, 5.0 * 0.5**0.5, 0.9]
+        [5.0 * COS_45, 5.0 * COS_45, 0.9]
     ]
     for pos in should_be_inside:
         assert tor.point_sense(pos) == -1
