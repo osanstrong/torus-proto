@@ -15,7 +15,7 @@ def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert np.allclose(a, b, rtol=rel_tol, atol=abs_tol)
 
 # In lieu of any rootfinder implementations, just use numpy for now
-def real_roots_numpy(coeffs: list[float]) -> list[float]:
+def calc_real_roots_numpy(coeffs: list[float]) -> list[float]:
     """
     Solves for roots of the polynomial using numpy's eigenvalue / matrix implementation
     """
@@ -30,7 +30,7 @@ def assert_intersections(
     ray_dir: np.array,
     known_t_list: list,
 ):
-    np_t_list = tor.ray_intersection_distances(ray_src, ray_dir, real_roots_numpy)
+    np_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_numpy)
     assert_close(sorted(np_t_list), known_t_list)
 
 # Like assert_intersections, but testing the method which returns final points instead of distances
@@ -40,7 +40,7 @@ def assert_intersection_points(
     ray_dir: np.array,
     known_point_list: list[np.array]
 ):
-    np_point_list = tor.ray_intersection_points(ray_pos, ray_dir, real_roots_numpy)
+    np_point_list = tor.ray_intersection_points(ray_pos, ray_dir, calc_real_roots_numpy)
     for i in range(len(np_point_list)):
         assert_close(np_point_list[i], known_point_list[i])
 
@@ -50,8 +50,8 @@ def test_center():
     tor = EllipticToroid(5, 1, 1)
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
-    assert len(tor.ray_intersection_distances(s, u, real_roots_numpy)) == 0
-    assert tor.distance_to_boundary(s, u, real_roots_numpy) is None
+    assert len(tor.ray_intersection_distances(s, u, calc_real_roots_numpy)) == 0
+    assert tor.distance_to_boundary(s, u, calc_real_roots_numpy) is None
 
 
 # Ray starting inside and going out away from center should have 1 intersection
@@ -61,7 +61,7 @@ def test_inside_out():
     u = np.array([0, 1, 0])
     assert_intersections(tor, s, u, [1])
     assert_intersection_points(tor, s, u, [np.array([0,6,0])])
-    assert isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
+    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_numpy), 1)
 
 
 # Ray starting inside and going towards center should have 3 intersections
@@ -75,7 +75,7 @@ def test_inside_through_center():
         np.array([0,-4,0]),
         np.array([0,-6,0])
     ])
-    assert isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
+    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_numpy), 1)
 
 
 # Repeat but along the a 45 degree diagonal
@@ -86,7 +86,7 @@ def test_inside_through_center_diag():
     u = -1 * diag
     assert_intersections(tor, s, u, [1, 9, 11])
     assert_intersection_points(tor, s, u, [4*diag, -4*diag, -6*diag])
-    assert isclose(tor.distance_to_boundary(s, u, real_roots_numpy), 1)
+    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_numpy), 1)
 
 
 # Repeat but with a further offset
@@ -97,7 +97,7 @@ def test_inside_through_center_diagoffset():
     s = 5 * diag
     u = -1 * diag
     inters = tor.ray_intersection_distances(
-        s, u, real_roots_numpy
+        s, u, calc_real_roots_numpy
     )
     assert len(inters) == 3
 
@@ -108,11 +108,11 @@ def test_vertical():
     s = np.array([0, 5.0, 2.3])
     u_up = np.array([0, 0, 1.0])
     u_down = np.array([0, 0, -1.0])
-    assert len(tor.ray_intersection_distances(s, u_up, real_roots_numpy)) == 0
-    assert tor.distance_to_boundary(s, u_up, real_roots_numpy) is None
+    assert len(tor.ray_intersection_distances(s, u_up, calc_real_roots_numpy)) == 0
+    assert tor.distance_to_boundary(s, u_up, calc_real_roots_numpy) is None
     assert_intersections(tor, s, u_down, [1.3, 3.3])
     assert_intersection_points(tor, s, u_down, [np.array([0,5.0,1.0]), np.array([0,5.0,-1.0])])
-    assert isclose(tor.distance_to_boundary(s, u_down, real_roots_numpy), 1.3)
+    assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_numpy), 1.3)
 
 
 # Points that should be inside
