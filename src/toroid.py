@@ -102,7 +102,7 @@ class Toroid:
 
     def ray_intersections(
         self,
-        ray_src: Iterable[float],
+        ray_pos: Iterable[float],
         ray_dir: Iterable[float],
         quart_solver: Callable[[list[float]], Iterable[float]],
     ) -> list[float]:
@@ -116,7 +116,7 @@ class Toroid:
 
         Parameters
         ----------
-        ray_src : Iterable[float] (length 3)
+        ray_pos : Iterable[float] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
@@ -126,14 +126,14 @@ class Toroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
-        poly = self._ray_intersection_polynomial(ray_src, ray_dir)
+        poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = quart_solver(poly)
         intersections: list = [t for t in t_vals if t > 0]
         return intersections
 
     def ray_intersection_points( 
         self,
-        ray_src: np.array,
+        ray_pos: np.array,
         ray_dir: np.array,
         quart_solver: Callable[[list[float]], list[float]],
     ) -> list[np.array]:
@@ -147,7 +147,7 @@ class Toroid:
 
         Parameters
         ----------
-        ray_src : np.array (length 3)
+        ray_pos : np.array (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : np.array (length 3)
             An array corresponding to the x, y, and z components of the ray's 
@@ -157,13 +157,13 @@ class Toroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
-        t_vals, t_locals = self.ray_intersections(ray_src, ray_dir, quart_solver)
-        points = [ray_src + t*ray_dir for t in t_vals]
+        t_vals, t_locals = self.ray_intersections(ray_pos, ray_dir, quart_solver)
+        points = [ray_pos + t*ray_dir for t in t_vals]
         return points, t_locals
 
     def distance_to_boundary( 
         self,
-        ray_src: Iterable[float],
+        ray_pos: Iterable[float],
         ray_dir: Iterable[float],
         quart_solver: Callable[[list[float]], list[float]],
     ) -> float | None:
@@ -177,7 +177,7 @@ class Toroid:
         If no such intersections are found, returns None instead.
 
         Parameters
-        ray_src : Iterable[float] (length 3)
+        ray_pos : Iterable[float] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
@@ -188,7 +188,7 @@ class Toroid:
             a copy of its local variables
         
         '''
-        inters = self.ray_intersections(ray_src, ray_dir, quart_solver)
+        inters = self.ray_intersections(ray_pos, ray_dir, quart_solver)
         if len(inters) == 0: return None
         return min(inters)
 
@@ -252,7 +252,7 @@ class Toroid:
 
 
     def _ray_intersection_polynomial(
-        self, ray_src: Iterable[float], ray_dir: Iterable[float]
+        self, ray_pos: Iterable[float], ray_dir: Iterable[float]
     ):
         '''Finds the coefficients of a polynomial representing the given ray's intersection 
         with this torus. The real roots, if any, of this polynomial represent distances along
@@ -260,7 +260,7 @@ class Toroid:
 
         Parameters
         ----------
-        ray_src : Iterable[float] (length 3)
+        ray_pos : Iterable[float] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
@@ -275,9 +275,9 @@ class Toroid:
         '''
         assert abs(la.norm(ray_dir) -1 ) < 1e-9
 
-        x0 = ray_src[0]
-        y0 = ray_src[1]
-        z0 = ray_src[2]
+        x0 = ray_pos[0]
+        y0 = ray_pos[1]
+        z0 = ray_pos[2]
 
         ax = ray_dir[0]
         ay = ray_dir[1]
