@@ -3,11 +3,11 @@ import math
 import numpy as np
 from numpy import linalg as la
 
-'''A module for modeling Elliptic Toroid surfaces for raytracing-like applications, 
+'''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
 specifically Celeritas and ORANGE.
 
 This module contains a class "EllipticToroid" which represents an elliptical toroid surface, with three
-functions necessary for raytracing:
+functions necessary for ray tracing:
  - The first intersection (if any) with the surface along a given ray
  - The sense of a point relative to the torus, whether inside, on, or outside
  - The normal vector to the surface at a given point
