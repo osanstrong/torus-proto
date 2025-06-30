@@ -117,9 +117,9 @@ class Toroid:
         Parameters
         ----------
         ray_src : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
+            An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z components of the ray's 
+            An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
@@ -148,9 +148,9 @@ class Toroid:
         Parameters
         ----------
         ray_src : np.array (length 3)
-            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
+            An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : np.array (length 3)
-            An array of length 3 corresponding to the x, y, and z components of the ray's 
+            An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
@@ -178,9 +178,9 @@ class Toroid:
 
         Parameters
         ray_src : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
+            An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z components of the ray's 
+            An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
@@ -261,9 +261,9 @@ class Toroid:
         Parameters
         ----------
         ray_src : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
+            An array corresponding to the x, y, and z coordinates of the ray's origin.
         ray_dir : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z components of the ray's 
+            An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
 
         Returns
