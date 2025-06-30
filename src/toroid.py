@@ -123,7 +123,7 @@ class Toroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ~ray_intersection_polynomial), and returns its real roots, alongside
+            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
         poly = self._ray_intersection_polynomial(ray_src, ray_dir)
@@ -137,13 +137,13 @@ class Toroid:
         ray_dir: np.array,
         quart_solver: Callable[[list[float]], list[float]],
     ) -> list[np.array]:
-        '''Solves for intersection points using the given quartic solver with ~ray_intersections, 
+        '''Solves for intersection points using the given quartic solver with ray_intersections(), 
         and returns them in a list alongside the locals from the solver.
 
         Returns
         -------
         A list of the given ray's intersection points, if any, with this toroid.
-        As with ~ray_intersections, this list is not guaranteed to be sorted.
+        As with ray_intersections(), this list is not guaranteed to be sorted.
 
         Parameters
         ----------
@@ -154,7 +154,7 @@ class Toroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ~ray_intersection_polynomial), and returns its real roots, alongside
+            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
         t_vals, t_locals = self.ray_intersections(ray_src, ray_dir, quart_solver)
@@ -184,7 +184,7 @@ class Toroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ~ray_intersection_polynomial), and returns its real roots, alongside
+            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         
         '''
