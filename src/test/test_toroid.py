@@ -108,7 +108,7 @@ def test_vertical():
 # Points that should be inside
 def test_inside_points():
     tor = Toroid(5, 1, 1)
-    should_be_inside: list[list[float]] = [
+    should_be_inside = [
         [5.0, 0, 0],
         [0, 5.0, 0],
         [5.0, 0, 0.9],
@@ -121,7 +121,7 @@ def test_inside_points():
 # Points that should be outside
 def test_outside_points():
     tor = Toroid(5, 1, 1)
-    should_be_outside: list[list[float]] = [
+    should_be_outside = [
         [0,0,0],
         [0,3.9,0],
         [3.9,0,0],
@@ -136,7 +136,7 @@ def test_outside_points():
 #Points that should be on the edge
 def test_edge_points():
     tor = Toroid(5,1,1)
-    should_be_on: list[list[float]] = [
+    should_be_on = [
         [5.0,0,1.0],
         [4.0,0,0],
         [6.0,0,0]
