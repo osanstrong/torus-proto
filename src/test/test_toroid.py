@@ -10,10 +10,8 @@ glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
 
 # Quick shorthand to check if two arrays are equivalent
-def check_equal(a, b, rel_tol=1e-09, abs_tol=0.0):
-    assert len(a) == len(b)
-    for i in range(len(a)):
-        assert isclose(a[i], b[i], rel_tol=rel_tol, abs_tol=abs_tol)
+def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
+    assert np.allclose(a, b, rtol=rel_tol, atol=abs_tol)
 
 # In lieu of any rootfinder implementations, just use numpy for now
 def real_roots_numpy(coeffs: list[float]) -> (list[float], dict):
@@ -38,7 +36,7 @@ def assert_intersections(
     np_t_list, np_info = tor.ray_intersections(ray_src, ray_dir, np_solver)
     t_lists.append(np_t_list)
     # run actual test
-    check_equal(sorted(np_t_list), known_t_list)
+    assert_close(sorted(np_t_list), known_t_list)
 
 
 # Ray through the center shouldn't intersect with the toroid
@@ -149,12 +147,12 @@ def test_edge_points():
 #Easily tested normal vectors
 def test_normals_basic():
     tor = Toroid(5,1,1)
-    check_equal(tor.surface_normal([5.0,0,1.0]), np.array([0,0,1.0]))
-    check_equal(tor.surface_normal([5.0,0,-1.0]), np.array([0,0,-1.0]))
-    check_equal(tor.surface_normal([6.0,0,0]), np.array([1.0,0,0]))
-    check_equal(tor.surface_normal([4.0,0,0]), np.array([-1.0,0,0]))
-    check_equal(tor.surface_normal([0,6.0,0]), np.array([0,1.0,0]))
-    check_equal(tor.surface_normal([0,4.0,0]), np.array([0,-1.0,0]))
+    assert_close(tor.surface_normal([5.0,0,1.0]), np.array([0,0,1.0]))
+    assert_close(tor.surface_normal([5.0,0,-1.0]), np.array([0,0,-1.0]))
+    assert_close(tor.surface_normal([6.0,0,0]), np.array([1.0,0,0]))
+    assert_close(tor.surface_normal([4.0,0,0]), np.array([-1.0,0,0]))
+    assert_close(tor.surface_normal([0,6.0,0]), np.array([0,1.0,0]))
+    assert_close(tor.surface_normal([0,4.0,0]), np.array([0,-1.0,0]))
 
 
 #### Helper function tests
@@ -170,4 +168,4 @@ def test_polynom():
     poly = tor._ray_intersection_polynomial(s, u)
     desmos = np.array([1, -5.60371151562, 21.4844076830, -38.1674209108, 19.9891068153])
 
-    check_equal(poly, desmos)
+    assert_close(poly, desmos)
