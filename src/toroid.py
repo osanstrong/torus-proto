@@ -99,54 +99,6 @@ class Toroid:
     def b0(self):
         return self._b0
 
-    def _ray_intersection_polynomial(
-        self, ray_src: Iterable[float], ray_dir: Iterable[float]
-    ):
-        '''Finds the coefficients of a polynomial representing the given ray's intersection 
-        with this torus. The real roots, if any, of this polynomial represent distances along
-        the ray to each intersection. The ray direction is assumed to be normalized.
-
-        Parameters
-        ----------
-        ray_src : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
-        ray_dir : Iterable[float] (length 3)
-            An array of length 3 corresponding to the x, y, and z components of the ray's 
-            direction. This vector is assumed to be normalized to a magnitude of 1.
-
-        Returns
-        -------
-        An np array of floats corresponding to the quartic polynomial whose roots are the distances 
-        along the given ray to its intersections with the torus. Returned in order 
-        [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
-        coefficient is always 1.
-        '''
-        x0 = ray_src[0]
-        y0 = ray_src[1]
-        z0 = ray_src[2]
-
-        ax = ray_dir[0]
-        ay = ray_dir[1]
-        az = ray_dir[2]
-
-        # Intermediate terms, from Graphics Gems
-        f = 1 - az*az
-        g = f + self.p*az*az
-        l = 2 * (x0*ax + y0*ay)
-        t = x0*x0 + y0*y0
-        q = self.a0 / (g*g)
-        m = (l + 2*self.p*z0*az) / g
-        u = (t + self.p*z0*z0 + self.b0) / g
-        
-
-        # Final polynomial coeffs
-        c4 = 1
-        c3 = 2*m
-        c2 = m*m + 2*u - q*f
-        c1 = 2*m*u - q*l
-        c0 = u*u - q*t
-        return np.array([c4, c3, c2, c1, c0])
-
 
     def ray_intersections(
         self,
@@ -295,3 +247,52 @@ class Toroid:
         if math.isclose(val, 0, abs_tol=threshold): return 0
         elif val > 0: return 1
         else: return -1
+
+
+    def _ray_intersection_polynomial(
+        self, ray_src: Iterable[float], ray_dir: Iterable[float]
+    ):
+        '''Finds the coefficients of a polynomial representing the given ray's intersection 
+        with this torus. The real roots, if any, of this polynomial represent distances along
+        the ray to each intersection. The ray direction is assumed to be normalized.
+
+        Parameters
+        ----------
+        ray_src : Iterable[float] (length 3)
+            An array of length 3 corresponding to the x, y, and z coordinates of the ray's origin.
+        ray_dir : Iterable[float] (length 3)
+            An array of length 3 corresponding to the x, y, and z components of the ray's 
+            direction. This vector is assumed to be normalized to a magnitude of 1.
+
+        Returns
+        -------
+        An np array of floats corresponding to the quartic polynomial whose roots are the distances 
+        along the given ray to its intersections with the torus. Returned in order 
+        [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
+        coefficient is always 1.
+        '''
+        x0 = ray_src[0]
+        y0 = ray_src[1]
+        z0 = ray_src[2]
+
+        ax = ray_dir[0]
+        ay = ray_dir[1]
+        az = ray_dir[2]
+
+        # Intermediate terms, from Graphics Gems
+        f = 1 - az*az
+        g = f + self.p*az*az
+        l = 2 * (x0*ax + y0*ay)
+        t = x0*x0 + y0*y0
+        q = self.a0 / (g*g)
+        m = (l + 2*self.p*z0*az) / g
+        u = (t + self.p*z0*z0 + self.b0) / g
+        
+
+        # Final polynomial coeffs
+        c4 = 1
+        c3 = 2*m
+        c2 = m*m + 2*u - q*f
+        c1 = 2*m*u - q*l
+        c0 = u*u - q*t
+        return np.array([c4, c3, c2, c1, c0])
