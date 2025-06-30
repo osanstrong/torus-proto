@@ -204,8 +204,10 @@ class Toroid:
         ----------
         pos : Iterable[float], length 3
             The x, y, and z of the position to find a surface vector at. 
-            Presumed to be on the surface.
+            Must be on the surface (point_sense(pos) == 0).
         '''
+        assert self.point_sense(pos) == 0
+    
         x = pos[0]
         y = pos[1]
         z = pos[2]
@@ -271,6 +273,8 @@ class Toroid:
         [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
         coefficient is always 1.
         '''
+        assert abs(la.norm(ray_dir) -1 ) < 1e-9
+
         x0 = ray_src[0]
         y0 = ray_src[1]
         z0 = ray_src[2]
