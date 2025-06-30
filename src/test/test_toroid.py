@@ -19,9 +19,8 @@ def real_roots_numpy(coeffs: list[float]) -> list[float]:
     Solves for roots of the polynomial using numpy's eigenvalue / matrix implementation
     """
     all_roots = np.roots(coeffs)
-    real = all_roots[np.isreal(all_roots)]
-    real_list = [float(np.real(r)) for r in real]
-    return real_list
+    real_roots = all_roots[np.isreal(all_roots)]
+    return [float(np.real(r)) for r in real_roots]
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(

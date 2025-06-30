@@ -128,8 +128,7 @@ class Toroid:
         '''
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = quart_solver(poly)
-        intersections: list = [t for t in t_vals if t > 0]
-        return intersections
+        return [t for t in t_vals if t > 0]
 
     def ray_intersection_points( 
         self,
@@ -157,9 +156,8 @@ class Toroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
-        t_vals, t_locals = self.ray_intersections(ray_pos, ray_dir, quart_solver)
-        points = [ray_pos + t*ray_dir for t in t_vals]
-        return points, t_locals
+        t_vals = self.ray_intersections(ray_pos, ray_dir, quart_solver)
+        return [ray_pos + t*ray_dir for t in t_vals]
 
     def distance_to_boundary( 
         self,
