@@ -1,23 +1,13 @@
 # A script to run test cases of toroid-ray.py
 
-
-# TODO: do this in a more pythonic way
-import os
-import sys
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.join(current_dir, "..")
-sys.path.insert(0, parent_dir)
-#
-
 import math
 import random
 import numpy as np
 import numpy.linalg as la
 import pytest
 import inspect
-import toroid
-from toroid import Toroid
+import src.toroid
+from src.toroid import Toroid
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
