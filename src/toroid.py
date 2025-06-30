@@ -52,6 +52,9 @@ class Toroid:
     ray intersection. 
     
     '''
+
+    __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0")
+
     def __init__(self, tor_rad: float, hor_rad: float, ver_rad: float):
         '''
         Parameters
@@ -95,36 +98,6 @@ class Toroid:
     @property
     def b0(self):
         return self._b0
-    
-    @tor_rad.setter
-    def tor_rad(self, value):
-        self._tor_rad = value
-        r = self.tor_rad
-        a = self.hor_rad
-        b = self.ver_rad
-        self._p = (a*a) / (b*b)
-        self._a0 = 4*r*r
-        self._b0 = r*r  - a*a
-
-    @hor_rad.setter
-    def hor_rad(self, value):
-        self._hor_rad = value
-        r = self.tor_rad
-        a = self.hor_rad
-        b = self.ver_rad
-        self._p = (a*a) / (b*b)
-        self._a0 = 4*r*r
-        self._b0 = r*r  - a*a
-    
-    @ver_rad.setter
-    def ver_rad(self, value):
-        self._ver_rad = value
-        r = self.tor_rad
-        a = self.hor_rad
-        b = self.ver_rad
-        self._p = (a*a) / (b*b)
-        self._a0 = 4*r*r
-        self._b0 = r*r  - a*a
 
     def _ray_intersection_polynomial(
         self, ray_src: Iterable[float], ray_dir: Iterable[float]
