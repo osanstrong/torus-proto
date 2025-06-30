@@ -15,7 +15,7 @@ functions necessary for raytracing:
 Note
 ----
 Ray-torus intersection and normal formulae taken from Graphics Gems II, Gem V.2 by Joseph M Cychosz, 
-Purdue University
+Purdue University. Graphics Gems II: ISBN 0-12-064481-9, Published 1991 Academic Press, Inc.
 
 '''
 
