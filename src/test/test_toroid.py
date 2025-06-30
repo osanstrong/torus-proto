@@ -41,19 +41,6 @@ def assert_intersections(
     check_equal(sorted(np_t_list), known_t_list)
 
 
-# Compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
-def test_polynom():
-    tor = Toroid(3.05, 1, 0.5)
-    s = np.array([1.4, 2.9, 2.6]) - np.array([0.96, -0.25, 1.3])
-    u = np.array([0.63, -0.2, -1.66])
-    u /= norm(u)
-
-    poly = tor._ray_intersection_polynomial(s, u)
-    desmos = np.array([1, -5.60371151562, 21.4844076830, -38.1674209108, 19.9891068153])
-
-    check_equal(poly, desmos)
-
-
 # Ray through the center shouldn't intersect with the toroid
 def test_center():
     tor = Toroid(5, 1, 1)
@@ -168,3 +155,19 @@ def test_normals_basic():
     check_equal(tor.surface_normal([4.0,0,0]), np.array([-1.0,0,0]))
     check_equal(tor.surface_normal([0,6.0,0]), np.array([0,1.0,0]))
     check_equal(tor.surface_normal([0,4.0,0]), np.array([0,-1.0,0]))
+
+
+#### Helper function tests
+
+
+# Compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
+def test_polynom():
+    tor = Toroid(3.05, 1, 0.5)
+    s = np.array([1.4, 2.9, 2.6]) - np.array([0.96, -0.25, 1.3])
+    u = np.array([0.63, -0.2, -1.66])
+    u /= norm(u)
+
+    poly = tor._ray_intersection_polynomial(s, u)
+    desmos = np.array([1, -5.60371151562, 21.4844076830, -38.1674209108, 19.9891068153])
+
+    check_equal(poly, desmos)
