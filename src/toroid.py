@@ -228,7 +228,6 @@ class EllipticToroid:
         elif val > 0: return 1
         else: return -1
 
-
     def _ray_intersection_polynomial(
         self, ray_pos: Iterable[float], ray_dir: Iterable[float]
     ):
