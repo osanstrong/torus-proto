@@ -6,7 +6,7 @@ from numpy import linalg as la
 '''A module for modeling Elliptic Toroid surfaces for raytracing-like applications, 
 specifically Celeritas and ORANGE.
 
-This module contains a class "Toroid" which represents an elliptical Toroid surface, with three
+This module contains a class "EllipticToroid" which represents an elliptical toroid surface, with three
 functions necessary for raytracing:
  - The first intersection (if any) with the surface along a given ray
  - The sense of a point relative to the torus, whether inside, on, or outside
@@ -20,7 +20,7 @@ Purdue University. Graphics Gems II: ISBN 0-12-064481-9, Published 1991 Academic
 '''
 
 
-class Toroid:
+class EllipticToroid:
     '''A class representing a z-axis oriented, origin-centered elliptical toroid in terms of: 
         tor_rad, the major radius (along xy plane)
         hor_rad, the radius of the rotated ellipse which is parallel to the major radius (xy plane)

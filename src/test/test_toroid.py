@@ -4,7 +4,7 @@ from math import isclose
 import numpy as np
 from numpy.linalg import norm
 import src.toroid
-from src.toroid import Toroid
+from src.toroid import EllipticToroid
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
@@ -25,7 +25,7 @@ def real_roots_numpy(coeffs: list[float]) -> list[float]:
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
-    tor: Toroid,
+    tor: EllipticToroid,
     ray_src: np.array,
     ray_dir: np.array,
     known_t_list: list,
@@ -35,7 +35,7 @@ def assert_intersections(
 
 # Like assert_intersections, but testing the method which returns final points instead of distances
 def assert_intersection_points(
-    tor: Toroid,
+    tor: EllipticToroid,
     ray_pos: np.array,
     ray_dir: np.array,
     known_point_list: list[np.array]
@@ -47,7 +47,7 @@ def assert_intersection_points(
 
 # Ray through the center shouldn't intersect with the toroid
 def test_center():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
     assert len(tor.ray_intersection_distances(s, u, real_roots_numpy)) == 0
@@ -56,7 +56,7 @@ def test_center():
 
 # Ray starting inside and going out away from center should have 1 intersection
 def test_inside_out():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     s = np.array([0, 5, 0])
     u = np.array([0, 1, 0])
     assert_intersections(tor, s, u, [1])
@@ -66,7 +66,7 @@ def test_inside_out():
 
 # Ray starting inside and going towards center should have 3 intersections
 def test_inside_through_center():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     s = np.array([0, 5.0, 0])
     u = np.array([0, -1.0, 0])
     assert_intersections(tor, s, u, [1, 9, 11])
@@ -80,7 +80,7 @@ def test_inside_through_center():
 
 # Repeat but along the a 45 degree diagonal
 def test_inside_through_center_diag():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     diag = np.array([COS_45, COS_45, 0])
     s = 5 * diag
     u = -1 * diag
@@ -91,7 +91,7 @@ def test_inside_through_center_diag():
 
 # Repeat but with a further offset
 def test_inside_through_center_diagoffset():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     diag = np.array([COS_45, COS_45 * 0.8, 0.03])
     diag /= norm(diag)
     s = 5 * diag
@@ -104,7 +104,7 @@ def test_inside_through_center_diagoffset():
 
 # Ray straight up from above the torus shouldn't intersect, and ray straight down from the same should intersect twice
 def test_vertical():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     s = np.array([0, 5.0, 2.3])
     u_up = np.array([0, 0, 1.0])
     u_down = np.array([0, 0, -1.0])
@@ -117,7 +117,7 @@ def test_vertical():
 
 # Points that should be inside
 def test_inside_points():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     should_be_inside = [
         [5.0, 0, 0],
         [0, 5.0, 0],
@@ -130,7 +130,7 @@ def test_inside_points():
 
 # Points that should be outside
 def test_outside_points():
-    tor = Toroid(5, 1, 1)
+    tor = EllipticToroid(5, 1, 1)
     should_be_outside = [
         [0,0,0],
         [0,3.9,0],
@@ -145,7 +145,7 @@ def test_outside_points():
 
 #Points that should be on the edge
 def test_edge_points():
-    tor = Toroid(5,1,1)
+    tor = EllipticToroid(5,1,1)
     should_be_on = [
         [5.0,0,1.0],
         [4.0,0,0],
@@ -156,7 +156,7 @@ def test_edge_points():
 
 #Easily tested normal vectors
 def test_normals_basic():
-    tor = Toroid(5,1,1)
+    tor = EllipticToroid(5,1,1)
     assert_close(tor.surface_normal([5.0,0,1.0]), np.array([0,0,1.0]))
     assert_close(tor.surface_normal([5.0,0,-1.0]), np.array([0,0,-1.0]))
     assert_close(tor.surface_normal([6.0,0,0]), np.array([1.0,0,0]))
@@ -170,7 +170,7 @@ def test_normals_basic():
 
 # Compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
 def test_polynom():
-    tor = Toroid(3.05, 1, 0.5)
+    tor = EllipticToroid(3.05, 1, 0.5)
     s = np.array([1.4, 2.9, 2.6]) - np.array([0.96, -0.25, 1.3])
     u = np.array([0.63, -0.2, -1.66])
     u /= norm(u)
