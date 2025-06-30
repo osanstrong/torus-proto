@@ -137,7 +137,7 @@ class Toroid:
         quart_solver: Callable[[list[float]], list[float]],
     ) -> list[np.array]:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
-        and returns them in a list alongside the locals from the solver.
+        and returns them in a list, sorted by increasing distance, alongside the locals from the solver.
 
         Returns
         -------
@@ -157,7 +157,7 @@ class Toroid:
             a copy of its local variables
         '''
         t_vals = self.ray_intersections(ray_pos, ray_dir, quart_solver)
-        return [ray_pos + t*ray_dir for t in t_vals]
+        return [ray_pos + t*ray_dir for t in sorted(t_vals)]
 
     def distance_to_boundary( 
         self,
