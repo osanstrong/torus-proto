@@ -14,14 +14,14 @@ def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert np.allclose(a, b, rtol=rel_tol, atol=abs_tol)
 
 # In lieu of any rootfinder implementations, just use numpy for now
-def real_roots_numpy(coeffs: list[float]) -> (list[float], dict):
+def real_roots_numpy(coeffs: list[float]) -> list[float]:
     """
     Solves for roots of the polynomial using numpy's eigenvalue / matrix implementation
     """
     all_roots = np.roots(coeffs)
     real = all_roots[np.isreal(all_roots)]
     real_list = [float(np.real(r)) for r in real]
-    return real_list, locals()
+    return real_list
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
@@ -33,7 +33,7 @@ def assert_intersections(
     t_lists = [known_t_list]
     # 1st: basic numpy root method
     np_solver = real_roots_numpy
-    np_t_list, np_info = tor.ray_intersections(ray_src, ray_dir, np_solver)
+    np_t_list = tor.ray_intersections(ray_src, ray_dir, np_solver)
     t_lists.append(np_t_list)
     # run actual test
     assert_close(sorted(np_t_list), known_t_list)
@@ -44,7 +44,7 @@ def test_center():
     tor = Toroid(5, 1, 1)
     s = np.array([0, 0, 1])
     u = np.array([0, 0, -1])
-    assert len(tor.ray_intersections(s, u, real_roots_numpy)[0]) == 0
+    assert len(tor.ray_intersections(s, u, real_roots_numpy)) == 0
     assert tor.distance_to_boundary(s, u, real_roots_numpy) is None
 
 
@@ -87,19 +87,19 @@ def test_inside_through_center_diagoffset():
     diag /= norm(diag)
     s = 5 * diag
     u = -1 * diag
-    inters, inter_locals = tor.ray_intersections(
+    inters = tor.ray_intersections(
         s, u, real_roots_numpy
     )
     assert len(inters) == 3
 
 
-# Ray straight down
+# Ray straight up from above the torus shouldn't intersect, and ray straight down from the same should intersect twice
 def test_vertical():
     tor = Toroid(5, 1, 1)
     s = np.array([0, 5.0, 2.3])
     u_up = np.array([0, 0, 1.0])
     u_down = np.array([0, 0, -1.0])
-    assert len(tor.ray_intersections(s, u_up, real_roots_numpy)[0]) == 0
+    assert len(tor.ray_intersections(s, u_up, real_roots_numpy)) == 0
     assert tor.distance_to_boundary(s, u_up, real_roots_numpy) is None
     assert_intersections(tor, s, u_down, [1.3, 3.3])
     assert isclose(tor.distance_to_boundary(s, u_down, real_roots_numpy), 1.3)

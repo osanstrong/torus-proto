@@ -104,8 +104,8 @@ class Toroid:
         self,
         ray_src: Iterable[float],
         ray_dir: Iterable[float],
-        quart_solver: Callable[[list[float]], (Iterable[float], Mapping)],
-    ) -> (list[float], dict):
+        quart_solver: Callable[[list[float]], Iterable[float]],
+    ) -> list[float]:
         '''Solves for intersection t values using the given quartic solver, and returns them in a
         list alongside the locals from the solver.
 
@@ -127,16 +127,16 @@ class Toroid:
             a copy of its local variables
         '''
         poly = self._ray_intersection_polynomial(ray_src, ray_dir)
-        t_vals, solver_locals = quart_solver(poly)
+        t_vals = quart_solver(poly)
         intersections: list = [t for t in t_vals if t > 0]
-        return intersections, solver_locals
+        return intersections
 
     def ray_intersection_points( 
         self,
         ray_src: np.array,
         ray_dir: np.array,
-        quart_solver: Callable[[list[float]], (list[float], dict)],
-    ) -> tuple[list[np.array], Mapping]:
+        quart_solver: Callable[[list[float]], list[float]],
+    ) -> list[np.array]:
         '''Solves for intersection points using the given quartic solver with ~ray_intersections, 
         and returns them in a list alongside the locals from the solver.
 
@@ -165,7 +165,7 @@ class Toroid:
         self,
         ray_src: Iterable[float],
         ray_dir: Iterable[float],
-        quart_solver: Callable[[list[float]], (list[float], dict)],
+        quart_solver: Callable[[list[float]], list[float]],
     ) -> float | None:
         '''Solves for the distance to the first intersection of the given ray with this torus.
         If no intersection is found, returns None.
@@ -188,7 +188,7 @@ class Toroid:
             a copy of its local variables
         
         '''
-        inters = self.ray_intersections(ray_src, ray_dir, quart_solver)[0]
+        inters = self.ray_intersections(ray_src, ray_dir, quart_solver)
         if len(inters) == 0: return None
         return min(inters)
 
