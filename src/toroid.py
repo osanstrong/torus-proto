@@ -37,19 +37,12 @@ class EllipticToroid:
         The horizontal radius of the revolved ellipse, along the xy plane
     ver_rad : float
         The vertical radius of the revolved ellipse, aligned with the z-axis
-    p : float, access only
-        A parameter, a^2/b^2, for convenient ray intersection
-    a0 : float, access only
-        A parameter, 4r^2, for convenient ray intersection
-    b0 : float, access only
-        A parameter (r^2-a^2), for convenient ray intersection
-        
 
     Note
     ----
-    The class also contains a secondary representation of its properties in terms of 3 parameters
+    The class also contains a private, secondary representation of its properties in terms of 3 parameters
     p, a0, and b0, such that (x^2+y^2 + pz^2 + b0^2) - a0(x^2+y^2), for the purpose of solving 
-    ray intersection. 
+    ray intersection. These parameters are currently only used internally.
     
     '''
 
@@ -86,19 +79,6 @@ class EllipticToroid:
     @property
     def ver_rad(self):
         return self._ver_rad
-
-    @property
-    def p(self):
-        return self._p
-
-    @property
-    def a0(self):
-        return self._a0
-
-    @property
-    def b0(self):
-        return self._b0
-
 
     def ray_intersection_distances(
         self,
@@ -283,12 +263,12 @@ class EllipticToroid:
 
         # Intermediate terms, from Graphics Gems
         f = 1 - az*az
-        g = f + self.p*az*az
+        g = f + self._p*az*az
         l = 2 * (x0*ax + y0*ay)
         t = x0*x0 + y0*y0
-        q = self.a0 / (g*g)
-        m = (l + 2*self.p*z0*az) / g
-        u = (t + self.p*z0*z0 + self.b0) / g
+        q = self._a0 / (g*g)
+        m = (l + 2*self._p*z0*az) / g
+        u = (t + self._p*z0*z0 + self._b0) / g
         
 
         # Final polynomial coeffs
