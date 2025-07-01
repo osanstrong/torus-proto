@@ -210,9 +210,9 @@ class EllipticToroid:
         a = self.hor_rad
         b = self.ver_rad
 
-        d = (x*x + y*y) ** 0.5
-        f = 2 * (d-r) / (d*a*a)
-        n = np.array([x*f, y*f, (2*z) / (b*b)])
+        d = (sq(x) + sq(y)) ** 0.5
+        f = 2 * (d-r) / (d*sq(a))
+        n = np.array([x*f, y*f, (2*z) / sq(b)])
         length = la.norm(n)
         if length == 0:
             return None
@@ -237,8 +237,8 @@ class EllipticToroid:
         r = self.tor_rad
         a = self.hor_rad
         b = self.ver_rad
-        val = ((x*x + y*y + z*z*(a*a)/(b*b) + (r*r - a*a))**2
-               - (4*r*r) * (x*x + y*y))
+        val = ((sq(x) + sq(y) + sq(z*a/b) + (sq(r) - sq(a)))**2
+               - (4*sq(r)) * (sq(x) + sq(y)))
         threshold = 1e-9
         if math.isclose(val, 0, abs_tol=threshold): return 0
         elif val > 0: return 1
@@ -277,19 +277,35 @@ class EllipticToroid:
         az = ray_dir[2]
 
         # Intermediate terms, from Graphics Gems
-        f = 1 - az*az
-        g = f + self._p*az*az
+        f = 1 - sq(az)
+        g = f + self._p*sq(az)
         l = 2 * (x0*ax + y0*ay)
-        t = x0*x0 + y0*y0
-        q = self._a0 / (g*g)
+        t = sq(x0) + sq(y0)
+        q = self._a0 / sq(g)
         m = (l + 2*self._p*z0*az) / g
-        u = (t + self._p*z0*z0 + self._b0) / g
+        u = (t + self._p*sq(z0) + self._b0) / g
         
 
         # Final polynomial coeffs
         c4 = 1
         c3 = 2*m
-        c2 = m*m + 2*u - q*f
+        c2 = sq(m) + 2*u - q*f
         c1 = 2*m*u - q*l
-        c0 = u*u - q*t
+        c0 = sq(u) - q*t
         return np.array([c4, c3, c2, c1, c0])
+
+
+# misc util functions
+
+def sq(val: float):
+    '''
+    Returns
+    -------
+    The square of a float val, i.e. val*val
+    
+    Parameters
+    ----------
+    val : float
+        The value to square
+    '''
+    return val*val
