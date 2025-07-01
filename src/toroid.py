@@ -182,7 +182,8 @@ class EllipticToroid:
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
         distances = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
-        if len(distances) == 0: return None
+        if not distances: 
+            return None
         return min(distances)
 
     def surface_normal(self, pos: Iterable[float]) -> np.array:
