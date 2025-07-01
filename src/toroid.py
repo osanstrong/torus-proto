@@ -59,6 +59,12 @@ class EllipticToroid:
         ver_rad : float
             The ellipse radius orthogonal to the major radius (z axis).
         '''
+        if not tor_rad > 0: raise ValueError(f"Toroid radius must be greater than 0 (tor_rad={tor_rad})")
+        if not hor_rad > 0: raise ValueError(f"Ellipse radii must be greater than 0 (hor_rad={hor_rad})")
+        if not ver_rad > 0: raise ValueError(f"Ellipse radii must be greater than 0 (ver_rad={ver_rad})")
+        if not tor_rad > hor_rad: 
+            raise ValueError(f"Degenerate toroids not supported (tor_rad={tor_rad} < {hor_rad}=hor_rad))")
+        
         self._tor_rad = tor_rad
         self._hor_rad = hor_rad
         self._ver_rad = ver_rad
@@ -106,6 +112,8 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
+        if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
+
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = quart_solver(poly)
         return [t for t in t_vals if t > 0]
@@ -136,6 +144,8 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots, alongside
             a copy of its local variables
         '''
+        if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
+        
         t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
         return [ray_pos + t*ray_dir for t in sorted(t_vals)]
 
@@ -166,6 +176,8 @@ class EllipticToroid:
             a copy of its local variables
         
         '''
+        if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
+        
         distances = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
         if len(distances) == 0: return None
         return min(distances)
@@ -184,7 +196,7 @@ class EllipticToroid:
             The x, y, and z of the position to find a surface vector at. 
             Must be on the surface (point_sense(pos) == 0).
         '''
-        assert self.point_sense(pos) == 0
+        if not self.point_sense(pos) == 0: raise ValueError("Point must be on surface.")
     
         x = pos[0]
         y = pos[1]

@@ -3,6 +3,7 @@
 from math import isclose
 import numpy as np
 from numpy.linalg import norm
+import pytest
 import src.toroid
 from src.toroid import EllipticToroid
 
@@ -163,6 +164,33 @@ def test_normals_basic():
     assert_close(tor.surface_normal([4.0,0,0]), np.array([-1.0,0,0]))
     assert_close(tor.surface_normal([0,6.0,0]), np.array([0,1.0,0]))
     assert_close(tor.surface_normal([0,4.0,0]), np.array([0,-1.0,0]))
+
+
+# Verify input tests
+def test_value_errors():
+    # Each possible way to mess up a toroid
+    with pytest.raises(ValueError): tor = EllipticToroid(-1, 1, 1)
+    with pytest.raises(ValueError): tor = EllipticToroid(1, -1, 1)
+    with pytest.raises(ValueError): tor = EllipticToroid(1.2, 1, -1)
+    with pytest.raises(ValueError): tor = EllipticToroid(0, 1, 1)
+    with pytest.raises(ValueError): tor = EllipticToroid(1, 0, 1)
+    with pytest.raises(ValueError): tor = EllipticToroid(1.2, 1, 0)
+    with pytest.raises(ValueError): tor = EllipticToroid(0.9, 1, 1)
+    with pytest.raises(ValueError): tor = EllipticToroid(1, 1, 1)
+
+    tor = EllipticToroid(2, 1, 1)
+    start = np.array([0.2,1,3])
+    zero = np.array([0,0,0])
+    
+    # Intersectors should not acccept zero vectors for direction
+    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, zero, calc_real_roots_numpy)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, zero, calc_real_roots_numpy)
+    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, zero, calc_real_roots_numpy)
+
+    # Surface normal should only work on surface points
+    with pytest.raises(ValueError): norm = tor.surface_normal([0,0,0])
+    with pytest.raises(ValueError): norm = tor.surface_normal([2,0,12])
+    with pytest.raises(ValueError): norm = tor.surface_normal([0,12,0]) 
 
 
 #### Helper function tests
