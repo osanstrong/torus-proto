@@ -82,12 +82,15 @@ def test_inside_through_center():
 # Repeat but along the a 45 degree diagonal
 def test_inside_through_center_diag():
     tor = EllipticToroid(5, 1, 1)
-    diag = np.array([COS_45, COS_45, 0])
-    s = 5 * diag
-    u = -1 * diag
-    assert_intersections(tor, s, u, [1, 9, 11])
-    assert_intersection_points(tor, s, u, [4*diag, -4*diag, -6*diag])
-    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_numpy), 1)
+    base_ang = np.pi / 4
+    for e in [s * 10**-p for s in [-1, 1] for p in range(1,10)]:
+        ang = base_ang + e
+        diag = np.array([np.cos(ang), np.sin(ang), 0])
+        s = 5 * diag
+        u = -1 * diag
+        assert_intersections(tor, s, u, [1, 9, 11])
+        assert_intersection_points(tor, s, u, [4*diag, -4*diag, -6*diag])
+        assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_numpy), 1)
 
 
 # Repeat but with a further offset
