@@ -192,6 +192,17 @@ def test_value_errors():
     with pytest.raises(ValueError): norm = tor.surface_normal([2,0,12])
     with pytest.raises(ValueError): norm = tor.surface_normal([0,12,0]) 
 
+    mag_one = [0,1,0]
+    not_one = [1,2,3]
+    # Intersection methods should only accept vectors with mag 1
+    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, not_one, calc_real_roots_numpy)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, not_one, calc_real_roots_numpy)
+    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, not_one, calc_real_roots_numpy) 
+    inters = tor.ray_intersection_distances(start, mag_one, calc_real_roots_numpy)
+    inters = tor.ray_intersection_points(start, mag_one, calc_real_roots_numpy)
+    dist = tor.distance_to_boundary(start, mag_one, calc_real_roots_numpy)
+    
+
 
 #### Helper function tests
 

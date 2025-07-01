@@ -112,7 +112,9 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-
+        if not np.isclose(la.norm(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
+        
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = quart_solver(poly)
         return [t for t in t_vals if t > 0]
@@ -143,6 +145,8 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
+        if not np.isclose(la.norm(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
         t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
         return [ray_pos + t*ray_dir for t in sorted(t_vals)]
@@ -174,6 +178,8 @@ class EllipticToroid:
         
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
+        if not np.isclose(la.norm(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
         distances = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
         if len(distances) == 0: return None
