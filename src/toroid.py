@@ -202,9 +202,7 @@ class EllipticToroid:
         '''
         if not self.point_sense(pos) == 0: raise ValueError("Point must be on surface.")
     
-        x = pos[0]
-        y = pos[1]
-        z = pos[2]
+        [x, y, z] = pos
 
         r = self.tor_rad
         a = self.hor_rad
@@ -231,12 +229,12 @@ class EllipticToroid:
         pos : Iterable[float], length 3
             The x, y, and z of the position to evaluate.
         '''
-        x = pos[0]
-        y = pos[1]
-        z = pos[2]
+        [x, y, z] = pos
+
         r = self.tor_rad
         a = self.hor_rad
         b = self.ver_rad
+
         val = ((sq(x) + sq(y) + sq(z*a/b) + (sq(r) - sq(a)))**2
                - (4*sq(r)) * (sq(x) + sq(y)))
         threshold = 1e-9
@@ -268,13 +266,9 @@ class EllipticToroid:
         '''
         assert abs(la.norm(ray_dir) -1 ) < 1e-9
 
-        x0 = ray_pos[0]
-        y0 = ray_pos[1]
-        z0 = ray_pos[2]
+        [x0, y0, z0] = ray_pos
 
-        ax = ray_dir[0]
-        ay = ray_dir[1]
-        az = ray_dir[2]
+        [ax, ay, az] = ray_dir
 
         # Intermediate terms, from Graphics Gems
         f = 1 - sq(az)
