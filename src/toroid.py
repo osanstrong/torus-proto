@@ -90,7 +90,7 @@ class EllipticToroid:
         self,
         ray_pos: Iterable[float],
         ray_dir: Iterable[float],
-        quart_solver: Callable[[list[float]], Iterable[float]],
+        solve_quartic: Callable[[list[float]], Iterable[float]],
     ) -> list[float]:
         '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
         the given quartic solver, and returns them in a list.
@@ -107,7 +107,7 @@ class EllipticToroid:
         ray_dir : Iterable[float] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        quart_solver : Callable[[list[float]], (Iterable[float], dict)]
+        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
@@ -116,14 +116,14 @@ class EllipticToroid:
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
-        t_vals = quart_solver(poly)
+        t_vals = solve_quartic(poly)
         return [t for t in t_vals if t > 0]
 
     def ray_intersection_points( 
         self,
         ray_pos: np.array,
         ray_dir: np.array,
-        quart_solver: Callable[[list[float]], list[float]],
+        solve_quartic: Callable[[list[float]], list[float]],
     ) -> list[np.array]:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
         and returns them in a list, sorted by increasing distance.
@@ -140,7 +140,7 @@ class EllipticToroid:
         ray_dir : np.array (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        quart_solver : Callable[[list[float]], (Iterable[float], dict)]
+        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
@@ -148,14 +148,14 @@ class EllipticToroid:
         if not np.isclose(la.norm(ray_dir), 1): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
-        t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
+        t_vals = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
         return [ray_pos + t*ray_dir for t in sorted(t_vals)]
 
     def distance_to_boundary( 
         self,
         ray_pos: Iterable[float],
         ray_dir: Iterable[float],
-        quart_solver: Callable[[list[float]], list[float]],
+        solve_quartic: Callable[[list[float]], list[float]],
     ) -> float | None:
         '''Solves for the distance to the first intersection of the given ray with this torus.
         If no intersection is found, returns None.
@@ -172,7 +172,7 @@ class EllipticToroid:
         ray_dir : Iterable[float] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        quart_solver : Callable[[list[float]], (Iterable[float], dict)]
+        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()).
         
@@ -181,7 +181,7 @@ class EllipticToroid:
         if not np.isclose(la.norm(ray_dir), 1): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
         
-        distances = self.ray_intersection_distances(ray_pos, ray_dir, quart_solver)
+        distances = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
         if not distances: 
             return None
         return min(distances)
