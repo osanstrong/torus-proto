@@ -92,8 +92,8 @@ class EllipticToroid:
         ray_dir: Iterable[float],
         quart_solver: Callable[[list[float]], Iterable[float]],
     ) -> list[float]:
-        '''Solves for intersection t values using the given quartic solver, and returns them in a
-        list alongside the locals from the solver.
+        '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
+        the given quartic solver, and returns them in a list.
 
         Returns
         -------
@@ -109,8 +109,7 @@ class EllipticToroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
-            a copy of its local variables
+            as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
 
@@ -125,12 +124,12 @@ class EllipticToroid:
         quart_solver: Callable[[list[float]], list[float]],
     ) -> list[np.array]:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
-        and returns them in a list, sorted by increasing distance, alongside the locals from the solver.
+        and returns them in a list, sorted by increasing distance.
 
         Returns
         -------
-        A list of the given ray's intersection points, if any, with this toroid.
-        As with ray_intersections(), this list is not guaranteed to be sorted.
+        A list, sorted in increasing distance, of the given ray's intersection points, if any, 
+        with this toroid.
 
         Parameters
         ----------
@@ -141,8 +140,7 @@ class EllipticToroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
-            a copy of its local variables
+            as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
         
@@ -161,7 +159,7 @@ class EllipticToroid:
         Returns
         -------
         A float value representing the distance to the first intersesction of the given ray with 
-        this torus. An intersection with a distance of 0 or below (backwards) will be excluded.
+        this torus. Only 'forward' intersections, where distance > 0, will be included.
         If no such intersections are found, returns None instead.
 
         Parameters
@@ -172,8 +170,7 @@ class EllipticToroid:
             direction. This vector is assumed to be normalized to a magnitude of 1.
         quart_solver : Callable[[list[float]], (Iterable[float], dict)]
             A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ray_intersection_polynomial()), and returns its real roots, alongside
-            a copy of its local variables
+            as returned by ray_intersection_polynomial()).
         
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
