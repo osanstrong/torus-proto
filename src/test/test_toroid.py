@@ -6,6 +6,8 @@ from numpy.linalg import norm
 import pytest
 import src.toroid
 from src.toroid import EllipticToroid
+import src.solvers
+from src.solvers import calc_real_roots_numpy
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
@@ -15,14 +17,6 @@ COS_45 = np.sqrt(0.5)
 def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert np.allclose(a, b, rtol=rel_tol, atol=abs_tol)
 
-# In lieu of any rootfinder implementations, just use numpy for now
-def calc_real_roots_numpy(coeffs: list[float]) -> list[float]:
-    """
-    Solves for roots of the polynomial using numpy's eigenvalue / matrix implementation
-    """
-    all_roots = np.roots(coeffs)
-    real_roots = all_roots[np.isreal(all_roots)]
-    return [float(np.real(r)) for r in real_roots]
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
@@ -33,6 +27,7 @@ def assert_intersections(
 ):
     np_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_numpy)
     assert_close(sorted(np_t_list), known_t_list)
+
 
 # Like assert_intersections, but testing the method which returns final points instead of distances
 def assert_intersection_points(

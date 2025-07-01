@@ -2,7 +2,7 @@
 Works with the cmath form of complex numbers, specifically the mpmath implementation.
 '''
 
-from collections import Iterable
+from collections.abc import Iterable
 import numpy as np
 import mpmath
 from mpmath import mpf, mpc
@@ -76,8 +76,8 @@ def ferrari_stackexchange(coeffs: Iterable[mpf], normalized: bool) -> list[mpc]:
         b0 = sq(y0) - r
     else:
         b0 = -q / 2 / a0
-    r0, r1 = roots2(1, a0, y0 + b0)
-    r2, r3 = roots2(1, -a0, y0 - b0)
+    r0, r1 = quadratic(1, a0, y0 + b0)
+    r2, r3 = quadratic(1, -a0, y0 - b0)
     return [r0 - z0, r1 - z0, r2 - z0, r3 - z0]
 
 
@@ -106,7 +106,7 @@ def calc_real_roots_ferrari(coeffs: Iterable[mpf], normalized:bool = True,
     See ferrari_stackexchange() for further notes about implementation.
     '''
     cmp_roots = ferrari_stackexchange(coeffs, normalized=normalized)
-    return [root.real for root in cmp_roots if mpmath.abs(root.imag) < imag_threshold]
+    return [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
     
     
 
@@ -137,15 +137,15 @@ def cardan(a: mpf, b: mpf, c: mpf, d: mpf) -> (mpc, mpc, mpc):
     b2 = sq(b)
     p = -b2/3 + c
     q = (b/27) * (2*b2 - 9*c) + d
-    r = mpmath.sqrt(-D/27 + 0j)
+    r = mpmath.sqrt(-d/27 + 0j)
     u3 = (-q-r) / 2
     v3 = (-q+r) / 2
-    u = mpmath.cbrt(mpmath.abs(u3)) * mpmath.sign(u3)
-    v = mpmath.cbrt(mpmath.abs(v3)) * mpmath.sign(v3)
+    u = mpmath.cbrt(mpmath.fabs(u3)) * mpmath.sign(u3)
+    v = mpmath.cbrt(mpmath.fabs(v3)) * mpmath.sign(v3)
     w = u * v
-    w0 = mpmath.abs(w + p/3)
-    w1 = mpmath.abs(w*J + p/3)
-    w2 = mpmath.abs(w*Jc + p/3)
+    w0 = mpmath.fabs(w + p/3)
+    w1 = mpmath.fabs(w*J + p/3)
+    w2 = mpmath.fabs(w*Jc + p/3)
     if w0 < w1:
         if w2 < w0:
             v *= Jc
