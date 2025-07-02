@@ -8,15 +8,30 @@ import src.toroid
 from src.toroid import EllipticToroid
 import src.solvers
 from src.solvers import calc_real_roots_numpy
+import mpmath
+from mpmath import mpf
+
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
 COS_45 = np.sqrt(0.5)
 
+
+# Shorthand for initializing a list of mpf instances
+def mpfl(l: list[float]):
+    return [mpf(f) for f in l]
+
+
 # Quick shorthand to check if two arrays are equivalent
 def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert np.allclose(a, b, rtol=rel_tol, atol=abs_tol)
 
+
+# Better shorthand for if two lists of mpf instances are close
+def assert_close_mp(a: list[mpf], b: list[mpf],
+                    rel_tol=1e-09, abs_tol=0.0):
+    assert len(a) == len(b)
+    assert all(math.isclose(a[i], b[i]) for i in range(len(a)))
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
 def assert_intersections(
