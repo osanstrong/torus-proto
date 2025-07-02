@@ -1,8 +1,7 @@
 import numpy as np
 import mpmath
 from mpmath import mpf
-from src import solvers 
-from src.test import toroid_util as tu
+from src import solvers
 from src.test.test_toroid import assert_close
 
 glob_rand_seed = 1999
