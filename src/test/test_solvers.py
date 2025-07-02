@@ -26,6 +26,6 @@ def test_rootfinders_random():
         roots_fr = solvers.calc_real_roots_ferrari(coeff_exps)
         # roots_frnp, root_locals_np = toroid_util.real_roots_ferrari_npdebug(coeff_exps)
 
-        roots_fr = sorted(roots_fr)
-        roots_np = [mpf(r) for r in sorted(roots_np)]
+        roots_fr = [float(r) for r in sorted(roots_fr)]
+        roots_np = [float(r) for r in sorted(roots_np)]
         assert_close(roots_np, roots_fr, abs_tol=1e-6)
