@@ -61,8 +61,7 @@ def calc_real_roots_ferrari(coeffs: Iterable[float],
 
 def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf], 
                                   normalized: bool = True, 
-                                  imag_threshold=mpf("1e-12"), 
-                                  dps: int = 64) -> list[mpf]:
+                                  imag_threshold=mpf("1e-16")) -> list[mpf]:
     '''Solves the quartic polynomial ax^4 + bx^3 + cx^2 + dx + e = 0 for its real roots.
     Uses mpmath for high precision
 

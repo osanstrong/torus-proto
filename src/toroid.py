@@ -1,7 +1,10 @@
 from collections.abc import Callable, Iterable, Mapping
+from typing import Union
 import math
 import numpy as np
 from numpy import linalg as la
+import mpmath
+from mpmath import mpf
 
 '''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
 specifically Celeritas and ORANGE.
@@ -20,6 +23,10 @@ Purdue University. Graphics Gems II: ISBN 0-12-064481-9, Published 1991 Academic
 '''
 
 
+# Type hint for acceptable arguments to make an mpf mixed-precision float instance
+type MpfAble = float|int|str|mpf
+
+
 class EllipticToroid:
     '''A class representing a z-axis oriented, origin-centered elliptical toroid in terms of: 
         tor_rad, the major radius (along xy plane)
@@ -31,11 +38,11 @@ class EllipticToroid:
 
     Attributes 
     ----------
-    tor_rad : float
+    tor_rad : MpfAble
         The radius from toroid origin to the center of the revolved ellipse, along the xy plane
-    hor_rad : float
+    hor_rad : MpfAble
         The horizontal radius of the revolved ellipse, along the xy plane
-    ver_rad : float
+    ver_rad : MpfAble
         The vertical radius of the revolved ellipse, aligned with the z-axis
 
     Note
@@ -48,23 +55,34 @@ class EllipticToroid:
 
     __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0")
 
-    def __init__(self, tor_rad: float, hor_rad: float, ver_rad: float):
+    def __init__(self, tor_rad: MpfAble, hor_rad: MpfAble, ver_rad: MpfAble):
         '''
         Parameters
         ----------
-        tor_rad : float
+        tor_rad : MpfAble
             The radius from toroid origin to the center of the revolved ellipse, along the xy plane
-        hor_rad : float
+        hor_rad : MpfAble
             The horizontal radius of the revolved ellipse, along the xy plane
-        ver_rad : float
+        ver_rad : MpfAble
             The ellipse radius orthogonal to the major radius (z axis).
+
+        Note
+        ----
+        When inputting non-binary fractions/decimals, either mpf or str instances may be preferred
+        to maintain higher precision
         '''
-        if not tor_rad > 0: raise ValueError(f"Toroid radius must be greater than 0 (tor_rad={tor_rad})")
-        if not hor_rad > 0: raise ValueError(f"Ellipse radii must be greater than 0 (hor_rad={hor_rad})")
-        if not ver_rad > 0: raise ValueError(f"Ellipse radii must be greater than 0 (ver_rad={ver_rad})")
+        tor_rad = mpf(tor_rad)
+        hor_rad = mpf(hor_rad)
+        ver_rad = mpf(ver_rad)
+
+        if not tor_rad > 0: 
+            raise ValueError(f"Toroid radius must be greater than 0 (tor_rad={tor_rad})")
+        if not hor_rad > 0: 
+            raise ValueError(f"Ellipse radii must be greater than 0 (hor_rad={hor_rad})")
+        if not ver_rad > 0: 
+            raise ValueError(f"Ellipse radii must be greater than 0 (ver_rad={ver_rad})")
         if not tor_rad > hor_rad: 
             raise ValueError(f"Degenerate toroids not supported (tor_rad={tor_rad} < {hor_rad}=hor_rad))")
-        
         self._tor_rad = tor_rad
         self._hor_rad = hor_rad
         self._ver_rad = ver_rad
@@ -75,23 +93,23 @@ class EllipticToroid:
         self._b0 = tor_rad*tor_rad  - hor_rad*hor_rad
 
     @property
-    def tor_rad(self):
+    def tor_rad(self) -> mpf:
         return self._tor_rad
 
     @property
-    def hor_rad(self):
+    def hor_rad(self) -> mpf:
         return self._hor_rad
 
     @property
-    def ver_rad(self):
+    def ver_rad(self) -> mpf:
         return self._ver_rad
 
     def ray_intersection_distances(
         self,
-        ray_pos: Iterable[float],
-        ray_dir: Iterable[float],
-        solve_quartic: Callable[[list[float]], Iterable[float]],
-    ) -> list[float]:
+        ray_pos: Iterable[MpfAble],
+        ray_dir: Iterable[MpfAble],
+        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+    ) -> list[mpf]:
         '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
         the given quartic solver, and returns them in a list.
 
@@ -102,29 +120,29 @@ class EllipticToroid:
 
         Parameters
         ----------
-        ray_pos : Iterable[float] (length 3)
+        ray_pos : Iterable[MpfAble] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
-        ray_dir : Iterable[float] (length 3)
+        ray_dir : Iterable[MpfAble] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
-            A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
+        solve_quartic : Callable[[list[mpf]], Iterable[mpf]]
+            A method which takes a quartic polynomial as a list of mpf instances (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not np.isclose(la.norm(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
+        if not math.isclose(hypot2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
-        t_vals = solve_quartic(poly)
+        t_vals = solve_quartic(to_mpfs(poly))
         return [t for t in t_vals if t > 0]
 
     def ray_intersection_points( 
         self,
-        ray_pos: np.array,
-        ray_dir: np.array,
-        solve_quartic: Callable[[list[float]], list[float]],
-    ) -> list[np.array]:
+        ray_pos: Iterable[mpf],
+        ray_dir: Iterable[mpf],
+        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+    ) -> list[list[mpf]]:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
         and returns them in a list, sorted by increasing distance.
 
@@ -135,27 +153,27 @@ class EllipticToroid:
 
         Parameters
         ----------
-        ray_pos : np.array (length 3)
+        ray_pos : Iterable[mpf] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
-        ray_dir : np.array (length 3)
+        ray_dir : Iterable[mpf] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
-            A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
+        solve_quartic : Callable[[list[mpf]], Iterable[mpf]]
+            A method which takes a quartic polynomial as a list of mpfs (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not np.isclose(la.norm(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
+        if not math.isclose(hypot2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
         
         t_vals = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
-        return [ray_pos + t*ray_dir for t in sorted(t_vals)]
+        return [add(ray_pos, scl(ray_dir, t)) for t in sorted(t_vals)]
 
     def distance_to_boundary( 
         self,
-        ray_pos: Iterable[float],
-        ray_dir: Iterable[float],
-        solve_quartic: Callable[[list[float]], list[float]],
+        ray_pos: Iterable[mpf],
+        ray_dir: Iterable[mpf],
+        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
     ) -> float | None:
         '''Solves for the distance to the first intersection of the given ray with this torus.
         If no intersection is found, returns None.
@@ -167,57 +185,57 @@ class EllipticToroid:
         If no such intersections are found, returns None instead.
 
         Parameters
-        ray_pos : Iterable[float] (length 3)
+        ----------
+        ray_pos : Iterable[mpf] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
-        ray_dir : Iterable[float] (length 3)
+        ray_dir : Iterable[mpf] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
-        solve_quartic : Callable[[list[float]], (Iterable[float], dict)]
-            A method which takes a quartic polynomial as a list of floats (ordered c4, c3 ... c0 
-            as returned by ray_intersection_polynomial()).
+        solve_quartic : Callable[[list[mpf]], Iterable[mpf]]
+            A method which takes a quartic polynomial as a list of mpfs (ordered c4, c3 ... c0 
+            as returned by ray_intersection_polynomial()), and returns its real roots.
         
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not np.isclose(la.norm(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {la.norm(ray_dir)})")
+        if not math.isclose(hypot2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
         
         distances = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
         if not distances: 
             return None
         return min(distances)
 
-    def surface_normal(self, pos: Iterable[float]) -> np.array:
+    def surface_normal(self, pos: Iterable[MpfAble]) -> list[mpf]:
         '''Solves for the vector normal to the torus surface at the given x, y, and z, and
         returns an np array containing that vector.
 
         Returns
         -------
-        A numpy array (1d, length 3) array of the surface normal vector.
+        A list of mpfs (length 3) representing the surface normal vector.
 
         Parameters
         ----------
-        pos : Iterable[float], length 3
+        pos : Iterable[MpfAble], length 3
             The x, y, and z of the position to find a surface vector at. 
             Must be on the surface (point_sense(pos) == 0).
         '''
         if not self.point_sense(pos) == 0: raise ValueError("Point must be on surface.")
     
-        [x, y, z] = pos
+        [x, y, z] = to_mpfs(pos)
 
         r = self.tor_rad
         a = self.hor_rad
         b = self.ver_rad
 
-        d = (sq(x) + sq(y)) ** 0.5
+        d = mpmath.sqrt(sq(x) + sq(y))
         f = 2 * (d-r) / (d*sq(a))
-        n = np.array([x*f, y*f, (2*z) / sq(b)])
-        length = la.norm(n)
+        n = [x*f, y*f, (2*z) / sq(b)]
+        length = mpmath.sqrt(hypot2(n))
         if length == 0:
             return None
-        n /= length
-        return n
+        return [comp/length for comp in n]
 
-    def point_sense(self, pos: Iterable[float]) -> int:
+    def point_sense(self, pos: Iterable[MpfAble]) -> int:
         '''Evaluates if the given point is inside, outside, or on the toroid surface.
         
         Returns
@@ -226,16 +244,16 @@ class EllipticToroid:
         and 1 if the point is outside of the surface.
 
         Parameters
-        pos : Iterable[float], length 3
+        pos : Iterable[MpfAble], length 3
             The x, y, and z of the position to evaluate.
         '''
-        [x, y, z] = pos
+        [x, y, z] = to_mpfs(pos)
 
         r = self.tor_rad
         a = self.hor_rad
         b = self.ver_rad
 
-        val = ((sq(x) + sq(y) + sq(z*a/b) + (sq(r) - sq(a)))**2
+        val = (sq(sq(x) + sq(y) + sq(z*a/b) + (sq(r) - sq(a)))
                - (4*sq(r)) * (sq(x) + sq(y)))
         threshold = 1e-9
         if math.isclose(val, 0, abs_tol=threshold): return 0
@@ -243,32 +261,32 @@ class EllipticToroid:
         else: return -1
 
     def _ray_intersection_polynomial(
-        self, ray_pos: Iterable[float], ray_dir: Iterable[float]
-    ):
+        self, ray_pos: Iterable[MpfAble], ray_dir: Iterable[MpfAble]
+    ) -> list[mpf]:
         '''Finds the coefficients of a polynomial representing the given ray's intersection 
         with this torus. The real roots, if any, of this polynomial represent distances along
         the ray to each intersection. The ray direction is assumed to be normalized.
 
         Parameters
         ----------
-        ray_pos : Iterable[float] (length 3)
+        ray_pos : Iterable[MpfAble] (length 3)
             An array corresponding to the x, y, and z coordinates of the ray's origin.
-        ray_dir : Iterable[float] (length 3)
+        ray_dir : Iterable[MpfAble] (length 3)
             An array corresponding to the x, y, and z components of the ray's 
             direction. This vector is assumed to be normalized to a magnitude of 1.
 
         Returns
         -------
-        An np array of floats corresponding to the quartic polynomial whose roots are the distances 
+        A list of mpfs corresponding to the quartic polynomial whose roots are the distances 
         along the given ray to its intersections with the torus. Returned in order 
         [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
         coefficient is always 1.
         '''
-        assert abs(la.norm(ray_dir) -1 ) < 1e-9
+        assert math.isclose(hypot2(ray_dir), mpf(1))
 
-        [x0, y0, z0] = ray_pos
+        [x0, y0, z0] = to_mpfs(ray_pos)
 
-        [ax, ay, az] = ray_dir
+        [ax, ay, az] = to_mpfs(ray_dir)
 
         # Intermediate terms, from Graphics Gems
         f = 1 - sq(az)
@@ -281,17 +299,17 @@ class EllipticToroid:
         
 
         # Final polynomial coeffs
-        c4 = 1
+        c4 = mpf(1)
         c3 = 2*m
         c2 = sq(m) + 2*u - q*f
         c1 = 2*m*u - q*l
         c0 = sq(u) - q*t
-        return np.array([c4, c3, c2, c1, c0])
+        return [c4, c3, c2, c1, c0]
 
 
 # misc util functions
 
-def sq(val: float):
+def sq(val: mpf|float) -> mpf|float:
     '''
     Returns
     -------
@@ -299,7 +317,65 @@ def sq(val: float):
     
     Parameters
     ----------
-    val : float
+    val : mpf|float
         The value to square
     '''
     return val*val
+
+
+def hypot2(vals: Iterable[mpf|float]) -> mpf|float:
+    '''
+    Returns
+    -------
+    The sum of the squares of every value in the given Iterable
+
+    Parameters
+    ----------
+    vals : Iterable[mpf|float]
+        The vector/list of components to find the squared hypotenuse of
+    '''
+    return sum([sq(val) for val in vals])
+
+
+def to_mpfs(vals: Iterable[MpfAble]) -> list[mpf]:
+    '''
+    Returns
+    -------
+    A list of mpf instances corresponding to each original value
+    
+    Parameters
+    vals : Iterable[MpfAble] 
+        A list of mpf-compatible values to convert to mpf instances
+    '''
+    return [mpf(val) for val in vals]
+
+
+def scl(vals: Iterable[mpf|float], factor: mpf|float) -> list[mpf]:
+    '''
+    Returns
+    -------
+    A list of each value scaled by the given factor
+
+    Parameters
+    ----------
+    vals : Iterable[mpf|float]
+        A list of values to scale
+    factor : mpf | float
+        The factor to scale each value by
+    '''
+    return [val*factor for val in vals]
+
+
+def add(a: Iterable[mpf], b: Iterable[mpf]) -> list[mpf]:
+    '''
+    Returns
+    -------
+    A list containing the sums of each corresponding pair of values in a and b
+
+    Parameters
+    ----------
+    a, b : Iterable[mpf] of same length
+        The lists of values to add
+    '''
+    assert len(a) == len(b)
+    return [a[i]+b[i] for i in range(len(a))]

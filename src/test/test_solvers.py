@@ -7,8 +7,8 @@ from src.test.test_toroid import assert_close
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
 
-DIGIT_PRECISION = 64
-mpmath.mp.dps = DIGIT_PRECISION
+FLOAT_PRECISION = 53 + 192
+mpmath.mp.prec = FLOAT_PRECISION
 
 # Quick test script to verify that solvers have consistent responses
 def test_rootfinders_random():
@@ -25,7 +25,7 @@ def test_rootfinders_random():
 
         roots_np = solvers.calc_real_roots_numpy(coeffs)
         roots_fr = solvers.calc_real_roots_ferrari(coeffs)
-        roots_fr_hp = solvers.calc_real_roots_ferrari_highp(coeffs, dps=DIGIT_PRECISION)
+        roots_fr_hp = solvers.calc_real_roots_ferrari_highp(coeffs)
 
         # Remember this test isn't checking for precision, just that the math checks out
         roots_fr = [float(r) for r in sorted(roots_fr)]

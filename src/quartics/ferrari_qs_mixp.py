@@ -7,7 +7,7 @@ Note
 ----
 The numba parts have been stripped for now, as this is not yet a speed-based project
 
-Substantially modified for case-specific use from original by Nino Krvavica 
+Substantially modified for case-specific use from an implementation by Nino Krvavica 
 at https://github.com/NKrvavica/fqs
 
 Originally licensed under the MIT license below:
@@ -37,6 +37,7 @@ Originally licensed under the MIT license below:
 
 import mpmath
 from mpmath import mpf, mpc
+from math import isclose
 
 
 def solve_normalized_quadratic(b: mpf, 
@@ -158,6 +159,16 @@ def solve_normalized_quartic(b: mpf,
     p = 3*qb2 - 0.5*c
     q = b*qb2 - c*qb + 0.5*d
     r = 3*qb2*qb2 - c*qb2 + d*qb - e
+
+    # Edge case: biquadratic
+    # if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+2)):
+    if isclose(q, 0, abs_tol=mpmath.power(2, -24)):
+        ir0, ir1 = solve_normalized_quadratic(-p*2, -r)
+        r0 = mpmath.sqrt(ir0)
+        r1 = -r0
+        r2 = mpmath.sqrt(ir1)
+        r3 = -r2
+        return r0 - qb, r1 - qb, r2 - qb, r3 - qb
 
     assert type(p) == type(q) == type(r) == mpmath.mpf
 
