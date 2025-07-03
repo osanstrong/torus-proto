@@ -282,11 +282,12 @@ class EllipticToroid:
         [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
         coefficient is always 1.
         '''
-        assert math.isclose(hypot2(ray_dir), mpf(1))
 
         [x0, y0, z0] = to_mpfs(ray_pos)
 
         [ax, ay, az] = to_mpfs(ray_dir)
+
+        assert math.isclose(hypot2([ax, ay, az]), mpf(1))
 
         # Intermediate terms, from Graphics Gems
         f = 1 - sq(az)
