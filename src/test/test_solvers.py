@@ -7,7 +7,7 @@ from src.test.test_toroid import assert_close
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
 
-FLOAT_PRECISION = 53 + 192
+FLOAT_PRECISION = 256 + (53 - 64) # Definitely not how it works, but I like keeping it just short of a power of two, like a 64-bit float having 53 bits of precision
 mpmath.mp.prec = FLOAT_PRECISION
 
 # Quick test script to verify that solvers have consistent responses
