@@ -135,6 +135,7 @@ def test_vertical():
     dists = tor.ray_intersection_distances(s, u_up, calc_real_roots_ferrari_highp)
     assert len(dists) == 0
     assert tor.distance_to_boundary(s, u_up, calc_real_roots_ferrari_highp) is None
+    polyn_down = tor._ray_intersection_polynomial(s, u_down)
     assert_intersections(tor, s, u_down, [s[2] - tor.ver_rad, s[2] + tor.ver_rad])
     assert_intersection_points(tor, s, u_down, [[0,5.0,tor.ver_rad], [0,5.0,-tor.ver_rad]])
     assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_ferrari_highp), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))

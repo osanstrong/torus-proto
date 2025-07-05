@@ -6,7 +6,7 @@ from collections.abc import Iterable
 import numpy as np
 import mpmath
 from mpmath import mpf, mpc
-import src.quartics.ferrari_qs as ferrari
+import src.quartics.ferrari_qs_functor as ferrari
 
 
 def calc_real_roots_numpy(coeffs: Iterable[float]) -> list[float]:
@@ -63,6 +63,7 @@ def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf],
         d /= a
         e /= a
         a = mpf(1)
-    cmp_roots = ferrari.solve_normalized_quartic(b, c, d, e)
 
-    return [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
+    cmp_roots = ferrari.SolveFerrari([b, c, d, e])()
+    real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
+    return real_roots

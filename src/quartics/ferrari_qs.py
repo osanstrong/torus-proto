@@ -161,8 +161,7 @@ def solve_normalized_quartic(b: mpf,
     r = 3*qb2*qb2 - c*qb2 + d*qb - e
 
     # Edge case: biquadratic
-    # if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+2)):
-    if isclose(q, 0, abs_tol=mpmath.power(2, -24)):
+    if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
         ir0, ir1 = solve_normalized_quadratic(-p*2, -r)
         r0 = mpmath.sqrt(ir0)
         r1 = -r0

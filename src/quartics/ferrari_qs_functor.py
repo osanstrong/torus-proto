@@ -54,7 +54,7 @@ class SolveFerrari:
         if len(coeffs) == 5:
             print("Need to normalize!")
             a = coeffs[0]
-            coeffs = [coeffs[i]/a for i in range(1,5)]
+            coeffs = [coeffs[i]/a for i in range(len(coeffs))]
         else:
             coeffs.insert(0,mpf(1))
 
@@ -106,11 +106,9 @@ class SolveFerrari:
             S_plus_U = S + U
             return S_plus_U - third_b
 
-    def _solve_normalized_quartic(self, coeffs_manual):
+    def _solve_normalized_quartic(self):
         b, c, d, e = self._coeffs[1:5]
-        b, c, d, e = [mpf(n) for n in coeffs_manual]
         assert type(b) == type(c) == type(d) == type(e) == mpf
-
         # 1/4 of b, because it comes up a lot
         qb = 0.25*b
         qb2 = sq(qb)
@@ -121,7 +119,7 @@ class SolveFerrari:
         r = 3*qb2*qb2 - c*qb2 + d*qb - e
 
         # Edge case: equation is biquadratic
-        if isclose(1, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
+        if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
             ir0, ir1 = self._solve_normalized_quadratic(-2*p, -r) 
             r0 = mpmath.sqrt(ir0)
             r1 = -r0
