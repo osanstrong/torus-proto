@@ -1,0 +1,159 @@
+"""
+Ferrari Quartic Solver (Mixed Precision)
+
+A Ferrari/Cardano solver implementing mpmath to allow for arbitrary precision
+
+Note
+----
+Created with reference of https://github.com/NKrvavica/fqs
+
+Reference originally licensed under the MIT license below:
+
+|   MIT License
+|
+|   Copyright (c) 2019 NKrvavica
+|
+|   Permission is hereby granted, free of charge, to any person obtaining a copy
+|   of this software and associated documentation files (the "Software"), to deal
+|   in the Software without restriction, including without limitation the rights
+|   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+|   copies of the Software, and to permit persons to whom the Software is
+|   furnished to do so, subject to the following conditions:
+|
+|   The above copyright notice and this permission notice shall be included in all
+|   copies or substantial portions of the Software.
+|
+|   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+|   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+|   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+|   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+|   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+|   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+|   SOFTWARE.
+"""
+
+import mpmath
+from mpmath import mpf, mpc
+from math import isclose
+
+
+MpfAble: type = float|int|str|mpf
+
+
+class SolveFerrari:
+    def __init__(self, coeffs: list[MpfAble]):
+        '''
+        '''
+        if not all(isinstance(c, MpfAble) for c in coeffs):
+            raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
+        if not len(coeffs) in [4,5]:
+            raise ValueError("Coefficients must either be a full 5 for a quartic, or the last 4 of one that has already been normalized (a=1)")
+        
+        coeffs = [mpf(c) for c in coeffs]
+
+        if len(coeffs) == 5:
+            print("Need to normalize!")
+            a = coeffs[0]
+            coeffs = [coeffs[i]/a for i in range(1,5)]
+        else:
+            coeffs.insert(0,mpf(1))
+
+        self._coeffs: list[mpf] = coeffs
+
+    def __call__(self, *args, **kwds):
+        
+        return self._solve_normalized_quartic()
+
+    def _solve_normalized_quadratic(self, b, c):
+        assert type(b) == type(c) == mpf
+
+        # Predivide by 2
+        b0 = -0.5*b
+        discrim = b0*b0 - c
+        sqrt_discrim = mpmath.sqrt(discrim)
+
+        # Roots
+        r1 = b0 - sqrt_discrim
+        r2 = b0 + sqrt_discrim
+
+        return r1, r2
+    
+    def _one_real_root_of_normalized_cubic(self, b, c, d):
+        assert type(b) == type(c) == type(d) == mpf
+
+        # Repeating values
+        third = mpf(1)/mpf(3)
+        third_b = b*third
+        third_b2 = sq(third_b)
+
+        # Intermediate variables
+        f = third*c - third_b2
+        g = third_b * (2*third_b2 - c) + d
+        h = 0.25*sq(g) + f**3
+
+        if f == g == h == mpf(0): #Should this be converted to closeness test?
+            return -cbrt(d)
+        elif h <= 0:
+            j = mpmath.sqrt(-f)
+            k = mpmath.acos(-0.5*g / (j*j*j))
+            m = mpmath.cos(third*k)
+            return 2*j*m - third_b
+
+        else:
+            sqrt_h = mpmath.sqrt(h)
+            S = cbrt(-0.5*g + sqrt_h)
+            U = cbrt(-0.5*g - sqrt_h)
+            S_plus_U = S + U
+            return S_plus_U - third_b
+
+    def _solve_normalized_quartic(self, coeffs_manual):
+        b, c, d, e = self._coeffs[1:5]
+        b, c, d, e = [mpf(n) for n in coeffs_manual]
+        assert type(b) == type(c) == type(d) == type(e) == mpf
+
+        # 1/4 of b, because it comes up a lot
+        qb = 0.25*b
+        qb2 = sq(qb)
+
+        # Subsidiary cubic equation
+        p = 3*qb2 - 0.5*c
+        q = b*qb2 - c*qb + 0.5*d
+        r = 3*qb2*qb2 - c*qb2 + d*qb - e
+
+        # Edge case: equation is biquadratic
+        if isclose(1, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
+            ir0, ir1 = self._solve_normalized_quadratic(-2*p, -r) 
+            r0 = mpmath.sqrt(ir0)
+            r1 = -r0
+            r2 = mpmath.sqrt(ir1)
+            r3 = -r2
+            return r0 - qb, r1 - qb, r2 - qb, r3 - qb
+        
+        # One real zero of subsidiary cubic
+        z0 = self._one_real_root_of_normalized_cubic(p, r, p*r - 0.5*sq(q))
+
+        s = mpmath.sqrt(2*p + 2*z0.real + 0j)
+        if s == 0:
+            t = z0*z0 + r
+        else:
+            t = -q / s
+
+        # Find shifted roots using quadratic equations    
+        r0, r1 = self._solve_normalized_quadratic(s.real, z0.real + t.real)
+        r2, r3 = self._solve_normalized_quadratic(-s.real, z0.real - t.real)
+        # Shift roots back to x
+        return r0 - qb, r1 - qb, r2 - qb, r3 - qb
+
+
+def sq(val: mpf):
+    return val*val
+
+
+def cbrt(val: mpc):
+    '''
+    Return cube root while maintaining sign
+    '''
+    if val.real >= 0:
+        return mpmath.cbrt(val)
+    else:
+        return -mpmath.cbrt(-val)
