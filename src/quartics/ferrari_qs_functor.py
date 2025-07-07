@@ -43,6 +43,10 @@ MpfAble: type = float|int|str|mpf
 class SolveFerrari:
     def __init__(self, coeffs: list[MpfAble]):
         '''
+        Parameters
+        ----------
+        coeffs : list[MpfAble]
+            The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
         if not all(isinstance(c, MpfAble) for c in coeffs):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
