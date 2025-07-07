@@ -9,6 +9,7 @@ https://doi.org/10.1145/3386241
 Written referencing OpenMC implementation: https://github.com/openmc-dev/openmc/blob/develop/src/external/quartic_solver.cpp
 '''
 
+import sys
 import mpmath
 from mpmath import mpmathify, mpf, mpc
 from mpmath import sqrt, fabs as abs, power as pow, sign, chop
@@ -16,6 +17,12 @@ from math import isclose
 
 
 MpfAble: type = float|int|str|mpf
+# Currently evaluated for double precision, TODO: should we include a method for arbitrary precision?
+# cbrt(MAX_DOUBLE) / 1.618034
+CUBIC_RESCAL_FACT = 3.488062113727083e+102
+# pow(DBL_MAX,1.0/4.0)/1.618034;
+QUART_RESCAL_FACT = 7.156344627944542e+76
+MACHEPS = sys.float_info.epsilon
 
 
 class Solve1010:
@@ -117,6 +124,114 @@ class Solve1010:
             else: 
                 b = q / a
             return a + b
+
+    def _calc_phi0(self, scaled: bool) -> mpf:
+        '''Calculates the given phi0 value for the polynomial.
+        Phi0 is the dominant root of the depressed + shifted cubic from eq. 79.
+        The discussion from section 2.2 of manuscript may also be relevant.'''
+        a, b, c, d = self._coeffs[1:5]
+
+        diskr = 9*sq(a) - 24*b
+        # Eq. 87
+        if (diskr > 0):
+            diskr = sqrt(diskr)
+            s = -2*b / (3*a + sign(a)*diskr)
+        else:
+            s = -a / 4
+        
+        # Eq. 83
+        aq = a + 4*s
+        bq = b + 3*s*(a + 2*s)
+        cq = c + s*(2*b + s*(3*a + 4*s))
+        dq = d + s*(c + s*(b + s*(a + s)))
+        gg = sq(bq) / 9
+        hh = aq * cq
+
+        g = hh - 4*dq - 3*gg # Eq. 85
+        h = (8*dq + hh - 2*gg)*bq/3 - sq(cq) - dq*sq(aq) # Eq. 86
+        rmax = self._solve_depressed_cubic(g, h)
+        if mpmath.isnan(rmax) or mpmath.isinf(rmax):
+            rmax = self._solve_depressed_cubic_handleinf(g, h)
+            if (mpmath.isnan(rmax) or mpmath.isinf(rmax)) and scaled:
+                # Rescale again
+                rfact = CUBIC_RESCAL_FACT
+                rfact2 = sq(rfact)
+                ggss = gg / rfact2 #TODO: Why does openmc's 1010 do these twice?
+                hhss = hh / rfact2
+                dqss = sq / rfact2
+                aqs = aq / rfact
+                bqs = bq / rfact
+                cqs = cq / rfact
+                ggss = sq(bqs) / mpf(9)
+                hhss = aqs * cqs
+                # TODO: do we need to get rid of any sq() instances here to preserve intended order of operations for precision?
+                g = hhss - 4*dqss - 3*ggss
+                h = (8*dqss + hhss - 2*ggss)*bqs/mpf(3) - cqs*(cqs/rfact) - (dq/rfact)*sq(aqs)
+                rmax = self._solve_depressed_cubic(g, h)
+                if mpmath.isnan(rmax) or mpmath.isinf(rmax):
+                    rmax = self._solve_depressed_cubic_handleinf(g, h)
+                rmax *= rfact
+        
+        #Use Newton-Raphson to refine phi0, see manuscript end of section 2.2
+        x = rmax
+        x2 = sq(x)
+        x3 = x * x2
+        gx = g * x
+        f = x * (x2 + g) + h
+        # TODO: ???? Do these need to be separate lines
+        maxtt = max(abs(x3), abs(gx))
+        if abs(h) > maxtt:
+            maxtt = abs(h)
+        
+        if abs(f) > maxtt*MACHEPS:
+            for iter_i in range(8):
+                df = 3*x2 + g
+                if df == 0:
+                    break
+
+                x_old = x
+                x -= f/df
+                f_old = f
+                f = x*(x2 + g) + h
+                if f == 0:
+                    break
+                
+                if abs(f) >= abs(f_old):
+                    x = x_old
+                    break
+        return x
+    
+    def _calc_err_ldlt(self, b, c, d, d2, l1, l2, l3) -> mpf:
+        # Eq. 29 and 30
+        err = abs(d2 + sq(l1) + 2*l3) if chop(b) == 0 else abs(((d2 + sq(l1) + 2*l3) - b) / b)
+        err += abs(2*d2*l2 + 2*l1*l3) if chop(c) == 0 else abs(((2*d2*l2 + 2*l1*l3) - c) / c)
+        err += abs(d2*sq(l2) + sq(l3)) if chop(d) == 0 else abs(((d2*sq(l2) + sq(l3)) - d) / d)
+        return err
+
+    def _calc_err_abcd_complex(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
+        '''abcd should be real, aq-dq can be complex'''
+        # Eq. 68 and 69 for complex alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
+        err = abs(bq*dq) if chop(d) == 0 else abs((bq*dq - d) / d)
+        err += abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if a == 0 else abs(((aq + cq) - a) / a)
+        return err
+
+    def _calc_err_abcd(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
+        '''Where all inputs are real'''
+        # Eq. 68 and 69 for real alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
+        err = abs(bq * dq) if chop(d) == 0 else abs((bq*dq - d) / d)
+        err += abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
+        return err
+
+    def _calc_err_abc(self, a: mpf, b, c, aq: mpf, bq, cq) -> mpf:
+        # Eq. 48 through 51 
+        err = abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
+        return err
         
     def _newton_raphson(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]):
         '''Refines the given list of roots for their matching coefficients.
@@ -125,7 +240,7 @@ class Solve1010:
         assert all(isinstance(c, mpf|mpc) for c in coeffs)
         assert all(isinstance(r, mpf|mpc) for r in roots)
 
-        a, b, c, d = coeffs
+        a, b, c, d = self._coeffs[1:5]
 
         # It might be unnecessary to go this explicit in making copies
         x = [mpmathify(root) for root in roots]
@@ -215,7 +330,22 @@ class Solve1010:
         return locals()
         return roots
 
-    def _solve_normalized_quartic(self) -> list[mpf|mpc]:
+    def _solve_quadratic(self, a: mpf, b: mpf, roots: Iterable) -> Iterable[mpc]:
+        diskr = sq(a) - 4*b
+        if (diskr >= 0):
+            div = -a - sign(a)*diskr
+            zmax = div / mpf(2)
+            zmin = mpf(0) if chop(zmax) == 0 else b / zmax
+
+            roots[0] = mpc(zmax)
+            roots[1] = mpc(zmin)
+        else:
+            sqrt_d = sqrt(-diskr)
+            roots[0] = mpc(-a + sqrt_d*1j) / mpf(2)
+            roots[1] = mpc(-a - sqrt_d*1j) / mpf(2)
+        return roots
+
+    def _solve_normalized_quartic(self) -> list[mpc]:
         '''The central solve of the algorithm, performed on self._coeffs
 
         Returns 
@@ -223,6 +353,217 @@ class Solve1010:
         A list of the (potentially complex) roots of the given equation
 
         '''
+        acx: mpc
+        bcx: mpc
+        ccx: mpc
+        dcx: mpc
+        l2m = mpmath.matrix([0,] * 12)
+        d2m = mpmath.matrix([0,] * 12)
+        res = mpmath.matrix([0,] * 12)
+        errv = mpmath.matrix([0,] * 3)
+        aqv = mpmath.matrix([0,] * 3)
+        cqv = mpmath.matrix([0,] * 3)
+        realcase: list[int] = [None, None]
+
+        final_roots = [None,]*4
+
+        # Assuming they've already been normalized
+        a, b, c, d = self._coeffs[1:5]
+
+        phi0 = self._calc_phi0(false)
+
+        # Rescale polynomial if necessary
+        rfact = mpf(1)
+        if mpmath.isnan(phi0) or mpmath.isinf(phi0):
+            rfact = QUART_RESCAL_FACT
+            a /= rfact
+            rfact2 = rfact * rfact
+            b /= rfact2
+            c /= rfact2*rfact
+            d /= rfact2*rfact2
+            self._coeffs[1:5] = a, b, c, d
+            phi0 = self._calc_phi0(True) 
+        
+        l1 = a / 2 # Eq. 16
+        l3 = b/6 + phi0 # Eq. 18
+        del2 = c - a*l3 # Defined just after Eq. 27
+        n_sol = 0 
+        bl311 = 2*b/mpf(3) - phi0 - sq(l1) # d2 as defined in Eq. 20
+        dml3l3 = d - sq(l3) # d3 as defined in Eq. 15 with d2 = 0
+
+        # TODO: This section seems like it might need some revision for when to chop, with what precision, etc
+        # 3 possible solutions for d2 and l2 (Eq. 28 and folowing discussion)
+        if (chop(bl311) != 0):
+            d2m[n_sol] = bl311
+            l2m[n_sol] = del2 / (2*d2m[nsol])
+            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[nsol], l3)
+            n_sol += 1
+
+        if (chop(del2) != 0):
+            l2m[n_sol] = mpf(2) * dml3l3 / del2
+            if chop(l2m[n_sol] != 0):
+                d2m[n_sol] = del2 / (mpf(2)*l2m[n_sol])
+                res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
+                n_sol += 1
+            
+            d2m[n_sol] = bl311
+            l2m[n_sol] = mpf(2) * dml3l3 / del2
+            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
+            n_sol += 1
+        
+        # Pick just one l2 and d2 pair
+        if n_sol == 0:
+            l2 = d2 = mpf(0)
+        else:
+            # Pick the pair minimizing errors
+            resmin = res[0]
+            kmin = 0
+            for k1 in range(1, n_sol):
+                if res[k1] < resmin:
+                    resmin = res[k1]
+                    kmin = k1
+            
+            d2 = d2m[kmin]
+            l2 = l2m[kmin]
+        
+        whichcase: int = 0 # Later used as an index
+        aq, bq, cq, dq # Again this doesn't do anything in *python* but I wanted to keep it clear what's about to be made
+        if d2 < 0:
+            # Case I eq. 37 through 40
+            gamma = sqrt(-d2)
+            aq = l1 + gamma
+            bq = l3 + gamma*l2
+            cq = l1 - gamma
+            dq = l3 - gamma*l2
+
+            if abs(dq) < abs(bq):
+                dq = d / bq
+            elif abs(dq) > abs(bq):
+                bq = d / dq
+            
+            if abs(aq) < abs(cq):
+                n_sol = 0
+                if chop(dq) != 0:
+                    aqv[n_sol] = (c - bq*cq) / dq # Eq. 47
+                    errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                    n_sol += 1
+                if chop(cq) != 0:
+                    aqv[n_sol] = (b - dq - bq) / cq # Eq. 47
+                    errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                    n_sol += 1
+                aqv[n_sol] = a - cq # Eq. 47
+                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                n_sol += 1
+
+                # Choose value of aq (alpha1 in manuscript) to minimize errors
+                errmin = errv[0]
+                kmin = 0
+                for k in range(1, n_sol):
+                    if (errv[k] < errmin):
+                        kmin = k
+                        errmin = errv[k]
+                
+                cq = cqv[kmin]
+            realcase[0] = 1
+        elif d2 > 0: # Should these be choperations? Probably don't need to, seeing as impl already handles "approximately zero"
+            # Case II eq. 53 through 56
+            gamma = sqrt(d2)
+            acx = mpc(l1 + gamma*1j)
+            bcx = mpc(l3 + gamma*l2*1j)
+            ccx = mpmath.conj(acx)
+            dcx = mpmath.conj(bcx)
+            realcase[0] = 0
+        else:
+            realcase[0] = -1 # d2 is 0
+        # Case III: d2 is 0 or approximately 0, check which solution is better
+        if realcase[0] == -1 or abs(d2) < MACHEPS * (abs(mpf(2)*b/mpf(3)) + abs(phi0) + sq(l1)):
+            d3 = d - sq(l3)
+            err0 = mpf(0)
+            if realcase[0] == 1: # I think it's possible this is a c++ typing thing and these can be condensed into one function since mpf and mpc are interchangable
+                err0 = self._calc_err_abcd(a, b, c, d, aq, bq, cq, dq)
+            elif realcase[0] == 0:
+                err0 = self._calc_err_abcd_complex(a, b, c, d, acx, bcx, ccx, dcx)
+            aq1, bq1, cq1, dq1 # Real
+            acx1, bcx1, ccx1, dcx1 # Complwx
+            err1 = mpf(0)
+            if d3 <= 0:
+                realcase[1] = 1
+                aq1 = l1
+                bq1 = l3 + sqrt(-d3)
+                cq1 = l1
+                dq1 = l3 - sqrt(-d3)
+                if abs(dq1) < abs(bq1):
+                    dq1 = d / bq1
+                elif abs(dq1) > abs(bq1):
+                    bq1 = d / dq1
+                err1 = self._calc_err_abcd(a, b, c, d, aq1, bq1, cq1, dq1) # Eq. 68
+            else:
+                # i.e. complex
+                realcase[1] = 0
+                acx1 = l1
+                bcx1 = l3 + mpc(0 + sqrt(d3)*1j)
+                ccx1 = l1
+                dcx1 = mpmath.conj(bcx1)
+                err1 = self._calc_err_abcd_complex(a, b, c, d, acx1, bcx1, ccx1, dcx1)
+            if realcase[0] == -1 or err1 < err0:
+                whichcase = 1 # d2 = 0
+                if realcase[1] == 1:
+                    aq = aq1
+                    bq = bq1
+                    cq = cq1
+                    dq = dq1
+                else:
+                    acx = acx1
+                    bcx = bcx1
+                    ccx = ccx1
+                    dcx = dcx1
+        if realcase[whichcase] == 1:
+            # If alpha1, beta1, alpha2, and beta2 are real first refine them through a Newton-Ralphson
+            aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
+            # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
+            qroots = self._solve_quadratic(aq, bq, [None, None])
+            final_roots[0:2] = qroots
+            qroots = self._solve_quadratic(cq, dq, qroots)
+            final_roots[2:4] = qroots
+        else:
+            # Complex coefficients of p1 and p2
+            if whichcase == 0: # d2 != 0 
+                cdiskr = 0.25*sq(acx) - bcx
+                # Calculate roots as those of p1(x) and p2(x) (end of sec. 2.1)
+                zx1 = -0.5*acx + sqrt(cdiskr)
+                zx2 = -0.5*acx - sqrt(cdiskr)
+                zmax = zx1 if abs(zx1) > abs(zx2) else zx2
+                zmin = bcx / zmax
+                final_roots[0:4] = [
+                    zxmin,
+                    mpmath.conj(zxmin),
+                    zxmax,
+                    mpmath.conj(zxmax)
+                ]
+            else: # d2 ~= 0
+                # Theoretically this path should never be reached
+                cdiskr = sqrt(sq(acx) - 4*bcx)
+                zx1 = -0.5 * (acx + cdiskr)
+                zx2 = -0.5 * (acx - cdiskr)
+                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+                zxmin = dcx / zxmax
+                final_roots[0:2] = [
+                    zxmax,
+                    zxmin
+                ]
+                cdiskr = sqrt(sq(ccx) - 4*dcx)
+                zx1 = -0.5 * (ccx + cdiskr)
+                zx2 = -0.5 * (ccx - cdiskr)
+                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+                zxmin = dcx / zxmax
+                final_roots[2:4] = [
+                    zxmax,
+                    zxmin
+                ]
+        if rfact != mpf(1):
+            for k in range(4):
+                final_roots[k] *= rfact
+    return final_roots
 
 
 def sq(val: mpf):
