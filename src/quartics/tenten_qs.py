@@ -140,33 +140,43 @@ class Solve1010:
         errf = mpf(0)
         for k1 in range(4):
             #TODO: Should this be an isclose operation?
+            print("fvec: ",fvec[k1],", vr: ",vr[k1])
             errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
-        for iter in range(8):
+            print("After adding: ",errf)
+        print("Original errf: ",errf)
+        for iter_i in range(8):
+            print(f"x at start of iter {iter_i}: ",x)
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
+            print("Determinant: ",det)
             if det == mpf(0): break
             Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4 # You don't really need to do this in python but I want it and I don't want to figure out a whole numpy mixp setup for this
-            Jinv[0][0] = x02
-            Jinv[0][1] = x[3] - x[1]
-            Jinv[0][2] = x[1] * x[2] - x[0] * x[3]
-            Jinv[0][3] = -x[1] * Jinv[0][1] - x[0] * Jinv[0][2]
-            Jinv[1][0] = x[0] * Jinv[0][0] + Jinv[0][1]
-            Jinv[1][1] = -x[1] * Jinv[0][0]
-            Jinv[1][2] = -x[1] * Jinv[0][1]
-            Jinv[1][3] = -x[1] * Jinv[0][2]
-            Jinv[2][0] = -Jinv[0][0]
-            Jinv[2][1] = -Jinv[0][1]
-            Jinv[2][2] = -Jinv[0][2]
-            Jinv[2][3] = Jinv[0][2] * x[2] + Jinv[0][1] * x[3]
-            Jinv[3][0] = -x[2] * Jinv[0][0] - Jinv[0][1]
-            Jinv[3][1] = Jinv[0][0] * x[3]
-            Jinv[3][2] = x[3] * Jinv[0][1]
-            Jinv[3][3] = x[3] * Jinv[0][2]
+            Jinv = [[0,]*4,]*4
+            Jinv = mpmath.matrix(Jinv)
+            Jinv[0,0] = x02
+            print("Jinv[0,0] at start: ",Jinv[0,0])
+            Jinv[0,1] = x[3] - x[1]
+            Jinv[0,2] = x[1] * x[2] - x[0] * x[3]
+            Jinv[0,3] = -x[1] * Jinv[0,1] - x[0] * Jinv[0,2]
+            Jinv[1,0] = x[0] * Jinv[0,0] + Jinv[0,1]
+            Jinv[1,1] = -x[1] * Jinv[0,0]
+            Jinv[1,2] = -x[1] * Jinv[0,1]
+            Jinv[1,3] = -x[1] * Jinv[0,2]
+            Jinv[2,0] = -Jinv[0,0]
+            Jinv[2,1] = -Jinv[0,1]
+            Jinv[2,2] = -Jinv[0,2]
+            Jinv[2,3] = Jinv[0,2] * x[2] + Jinv[0,1] * x[3]
+            Jinv[3,0] = -x[2] * Jinv[0,0] - Jinv[0,1]
+            Jinv[3,1] = Jinv[0,0] * x[3]
+            Jinv[3,2] = x[3] * Jinv[0,1]
+            Jinv[3,3] = x[3] * Jinv[0,2]
+            print("Jinv[0,0] at end: ",Jinv[0,0])
+            print("Jinv: ",Jinv)
             
-            dx = [0,]*4
+            dx = mpmath.matrix([0,]*4)
             for k1 in range(4):
                 for k2 in range(4):
-                    dx[k1] += Jinv[k1][k2] * fvec[k2]
+                    dx[k1] += Jinv[k1,k2] * fvec[k2]
 
             x_old = [mpmathify(xi) for xi in x]
             
@@ -181,7 +191,11 @@ class Solve1010:
             errf_old = errf
             errf = mpf(0)
             for k1 in range(4):
+                print("fvec: ",fvec[k1],", vr: ",vr[k1])
                 errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
+                print("After adding: ",errf)
+            print("New errf: ",errf)
+                
 
             if (chop(errf) == 0):
                 break
@@ -191,11 +205,14 @@ class Solve1010:
                 for k1 in range(4):
                     x[k1] = x_old[k1]
                 break
+            else:
+                print("Yet to converge, iteration ",iter_i)
 
         # Save results
         roots.clear()
         for i in range(4):
             roots.append(x[i])
+        return locals()
         return roots
 
     def _solve_normalized_quartic(self) -> list[mpf|mpc]:
