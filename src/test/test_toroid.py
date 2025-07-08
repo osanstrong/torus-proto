@@ -49,7 +49,7 @@ def assert_intersections(
     known_t_list: list[mpf],
 ):
     fr_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_ferrari_highp)
-    tt_t_list_all = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_1010, return_negative=True)
+    tt_t_list_all = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_1010, include_negative=True)
     tt_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_1010)
     assert_close(sorted(fr_t_list), known_t_list)
     assert_close(sorted(tt_t_list), known_t_list)
