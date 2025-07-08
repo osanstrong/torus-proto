@@ -318,8 +318,10 @@ void NRabcd(double a, double b, double c, double d, double* AQ, double* BQ,
 void solve_quadratic(double a, double b, std::complex<double> roots[2])
 {
   double diskr = a * a - 4 * b;
+  std::cout<<"\n diskr: "<<diskr;
   if (diskr >= 0.0) {
     double div = -a - std::copysign(std::sqrt(diskr), a);
+    std::cout<<"\n div: "<<div;
     double zmax = div / 2;
     double zmin = (zmax == 0.0) ? 0.0 : b / zmax;
 
@@ -572,6 +574,10 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
     oqs::solve_quadratic(cq, dq, qroots);
     roots[2] = qroots[0];
     roots[3] = qroots[1];
+    std::cout<<"\n roots: ";
+    for (int i = 0; i < 4; i++) {
+        std::cout<<" "<<roots[i];
+    }
   } else {
     /* complex coefficients of p1 and p2 */
     if (whichcase == 0) { // d2!=0
@@ -618,11 +624,23 @@ void print(std::string text)
     std::cout<<text;
 }
 
+double mpf(std::string val_text)
+{
+    std::string::size_type sz;
+    return std::stod(val_text, &sz);
+}
+
+#include <iterator>
+#include <algorithm>
 int main()
 {
     std::cout<<"Hello World";
     // double coeffs[5] = {1, 2, 3, 4, 2};
-    double coeffs[5] = {2, 4, 3, 2, 1};
+    // double coeffs[5] = {2, 4, 3, 2, 1};
+    // double coeffs[5] = {5, 4, 3, 2, 1};
+    // double coeffs[5] = {1,85.1771,-1355.8784425,1278.27932125,3168.22064625};
+    double coeffs[5] = {mpf("1.0"), mpf("-20.0"), mpf("98.0"), mpf("20.0"), mpf("-99.0")};
+    std::reverse(std::begin(coeffs), std::end(coeffs));
     std::complex<double> roots[4] = {};
     oqs::quartic_solver(coeffs, roots);
     print("\n");
