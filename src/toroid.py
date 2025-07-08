@@ -4,7 +4,7 @@ import math
 import numpy as np
 from numpy import linalg as la
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 
 '''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
 specifically Celeritas and ORANGE.
@@ -109,6 +109,7 @@ class EllipticToroid:
         ray_pos: Iterable[MpfAble],
         ray_dir: Iterable[MpfAble],
         solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        include_negative: bool = False
     ) -> list[mpf]:
         '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
         the given quartic solver, and returns them in a list.
@@ -135,7 +136,8 @@ class EllipticToroid:
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = solve_quartic(to_mpfs(poly))
-        return [t for t in t_vals if t > 0]
+        pos_vals = [t for t in t_vals if t > 0]
+        return t_vals if include_negative else pos_vals
 
     def ray_intersection_points( 
         self,
