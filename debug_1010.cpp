@@ -355,6 +355,8 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
   double c = coeff[1] / coeff[4];
   double d = coeff[0] / coeff[4];
   double phi0 = oqs::calc_phi0(a, b, c, d, 0);
+  
+  std::cout<<"\n "<<a<<", "<<b<<", "<<c<<", "<<d<<", phi: "<<phi0;
 
   // simple polynomial rescaling
   double rfact = 1.0;
@@ -375,6 +377,8 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
     2. * b / 3. - phi0 - l1 * l1; /* This is d2 as defined in eq. (20)*/
   double dml3l3 =
     d - l3 * l3; /* dml3l3 is d3 as defined in eq. (15) with d2=0 */
+  
+  std::cout<<"\n l1, l3, del2, bl311, dml3l3: "<<l1<<", "<<l3<<", "<<del2<<", "<<bl311<<", "<<dml3l3;
 
   /* Three possible solutions for d2 and l2 (see eqs. (28) and discussion which
    * follows) */
@@ -414,16 +418,28 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
     d2 = d2m[kmin];
     l2 = l2m[kmin];
   }
+  std::cout << "\n d2m: ";
+  for (int i = 0; i < 12; i++) {
+    std::cout << d2m[i] << ", ";
+  }
+  std::cout << "\n res: ";
+  for (int i = 0; i < 12; i++) {
+    std::cout << res[i] << ", ";
+  }
   int whichcase = 0;
   double aq, bq, cq, dq;
   if (d2 < 0.0) {
     /* Case I eqs. (37)-(40) */
     double gamma = std::sqrt(-d2);
+    std::cout << "\n gamma: " << gamma;
     aq = l1 + gamma;
     bq = l3 + gamma * l2;
 
     cq = l1 - gamma;
     dq = l3 - gamma * l2;
+    std::cout << "\n a1, b1, a2, b2: ";
+    std::cout << aq<<", "<<bq<<", "<<cq<<", "<<dq;
+    std::cout << " (originally)";
     if (std::abs(dq) < std::abs(bq))
       dq = d / bq;
     else if (std::abs(dq) > std::abs(bq))
@@ -545,6 +561,8 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
     /* if alpha1, beta1, alpha2 and beta2 are real first refine
      * the coefficient through a Newton-Raphson */
     oqs::NRabcd(a, b, c, d, &aq, &bq, &cq, &dq);
+    std::cout << "\n a1, b1, a2, b2: ";
+    std::cout << aq<<", "<<bq<<", "<<cq<<", "<<dq;
     /* finally calculate the roots as roots of p1(x) and p2(x) (see end of
      * sec. 2.1) */
     std::complex<double> qroots[2];
@@ -594,12 +612,20 @@ void quartic_solver(double coeff[5], std::complex<double> roots[4])
 
 } // namespace oqs
 
+#include <string>
+void print(std::string text)
+{
+    std::cout<<text;
+}
+
 int main()
 {
     std::cout<<"Hello World";
-    double coeffs[5] = {1, 2, 3, 4, 2};
+    // double coeffs[5] = {1, 2, 3, 4, 2};
+    double coeffs[5] = {2, 4, 3, 2, 1};
     std::complex<double> roots[4] = {};
     oqs::quartic_solver(coeffs, roots);
+    print("\n");
     for (auto root : roots) {
         std::cout << root << "\n";
     }

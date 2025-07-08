@@ -9,6 +9,7 @@ https://doi.org/10.1145/3386241
 Written referencing OpenMC implementation: https://github.com/openmc-dev/openmc/blob/develop/src/external/quartic_solver.cpp
 '''
 
+from collections.abc import Iterable
 import sys
 import mpmath
 from mpmath import mpmathify, mpf, mpc
@@ -41,7 +42,7 @@ class Solve1010:
         coeffs = [mpf(c) for c in coeffs]
 
         if len(coeffs) == 5:
-            print("Need to normalize!")
+#            print("Need to normalize!")
             a = coeffs[0]
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
         else:
@@ -226,14 +227,14 @@ class Solve1010:
         err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
         return err
 
-    def _calc_err_abc(self, a: mpf, b, c, aq: mpf, bq, cq) -> mpf:
+    def _calc_err_abc(self, a: mpf, b, c, aq: mpf, bq, cq, dq) -> mpf:
         # Eq. 48 through 51 
         err = abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
         err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
         err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
         return err
         
-    def _newton_raphson(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]):
+    def _newton_raphson(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]) -> list[mpf|mpc]:
         '''Refines the given list of roots for their matching coefficients.
         Defined in section 2.3 of manuscript. 
         '''
@@ -255,21 +256,21 @@ class Solve1010:
         errf = mpf(0)
         for k1 in range(4):
             #TODO: Should this be an isclose operation?
-            print("fvec: ",fvec[k1],", vr: ",vr[k1])
+#            print("fvec: ",fvec[k1],", vr: ",vr[k1])
             errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
-            print("After adding: ",errf)
-        print("Original errf: ",errf)
+#            print("After adding: ",errf)
+#        print("Original errf: ",errf)
         for iter_i in range(8):
-            print(f"x at start of iter {iter_i}: ",x)
+#            print(f"x at start of iter {iter_i}: ",x)
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
-            print("Determinant: ",det)
+#            print("Determinant: ",det)
             if det == mpf(0): break
             Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4 # You don't really need to do this in python but I want it and I don't want to figure out a whole numpy mixp setup for this
             Jinv = [[0,]*4,]*4
             Jinv = mpmath.matrix(Jinv)
             Jinv[0,0] = x02
-            print("Jinv[0,0] at start: ",Jinv[0,0])
+#            print("Jinv[0,0] at start: ",Jinv[0,0])
             Jinv[0,1] = x[3] - x[1]
             Jinv[0,2] = x[1] * x[2] - x[0] * x[3]
             Jinv[0,3] = -x[1] * Jinv[0,1] - x[0] * Jinv[0,2]
@@ -285,8 +286,8 @@ class Solve1010:
             Jinv[3,1] = Jinv[0,0] * x[3]
             Jinv[3,2] = x[3] * Jinv[0,1]
             Jinv[3,3] = x[3] * Jinv[0,2]
-            print("Jinv[0,0] at end: ",Jinv[0,0])
-            print("Jinv: ",Jinv)
+#            print("Jinv[0,0] at end: ",Jinv[0,0])
+#            print("Jinv: ",Jinv)
             
             dx = mpmath.matrix([0,]*4)
             for k1 in range(4):
@@ -306,34 +307,36 @@ class Solve1010:
             errf_old = errf
             errf = mpf(0)
             for k1 in range(4):
-                print("fvec: ",fvec[k1],", vr: ",vr[k1])
+#                print("fvec: ",fvec[k1],", vr: ",vr[k1])
                 errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
-                print("After adding: ",errf)
-            print("New errf: ",errf)
+#                print("After adding: ",errf)
+#            print("New errf: ",errf)
                 
 
             if (chop(errf) == 0):
                 break
 
             if errf >= errf_old:
-                print("Converged already!")
+#                print("Converged already!")
                 for k1 in range(4):
                     x[k1] = x_old[k1]
                 break
-            else:
-                print("Yet to converge, iteration ",iter_i)
+            # else:
+#                print("Yet to converge, iteration ",iter_i)
 
         # Save results
         roots.clear()
         for i in range(4):
             roots.append(x[i])
-        return locals()
+        # return locals()
         return roots
 
     def _solve_quadratic(self, a: mpf, b: mpf, roots: Iterable) -> Iterable[mpc]:
         diskr = sq(a) - 4*b
+#        print("diskr: ",diskr)
         if (diskr >= 0):
-            div = -a - sign(a)*diskr
+            div = -a - sign(a)*sqrt(diskr)
+#            print("div: ",div)
             zmax = div / mpf(2)
             zmin = mpf(0) if chop(zmax) == 0 else b / zmax
 
@@ -370,7 +373,7 @@ class Solve1010:
         # Assuming they've already been normalized
         a, b, c, d = self._coeffs[1:5]
 
-        phi0 = self._calc_phi0(false)
+        phi0 = self._calc_phi0(False)
 
         # Rescale polynomial if necessary
         rfact = mpf(1)
@@ -385,18 +388,19 @@ class Solve1010:
             phi0 = self._calc_phi0(True) 
         
         l1 = a / 2 # Eq. 16
-        l3 = b/6 + phi0 # Eq. 18
+        l3 = b/mpf(6) + phi0/2 # Eq. 18
         del2 = c - a*l3 # Defined just after Eq. 27
         n_sol = 0 
         bl311 = 2*b/mpf(3) - phi0 - sq(l1) # d2 as defined in Eq. 20
         dml3l3 = d - sq(l3) # d3 as defined in Eq. 15 with d2 = 0
+#        print(locals())
 
         # TODO: This section seems like it might need some revision for when to chop, with what precision, etc
         # 3 possible solutions for d2 and l2 (Eq. 28 and folowing discussion)
         if (chop(bl311) != 0):
             d2m[n_sol] = bl311
-            l2m[n_sol] = del2 / (2*d2m[nsol])
-            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[nsol], l3)
+            l2m[n_sol] = del2 / (2*d2m[n_sol])
+            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
             n_sol += 1
 
         if (chop(del2) != 0):
@@ -426,15 +430,20 @@ class Solve1010:
             d2 = d2m[kmin]
             l2 = l2m[kmin]
         
+#        print("d2m: ", d2m)
+#        print("res: ", res)
+        
         whichcase: int = 0 # Later used as an index
-        aq, bq, cq, dq # Again this doesn't do anything in *python* but I wanted to keep it clear what's about to be made
+        # aq, bq, cq, dq # Just to clarify what variables we're about to assign to
         if d2 < 0:
             # Case I eq. 37 through 40
             gamma = sqrt(-d2)
+#            print("gamma: ", gamma)
             aq = l1 + gamma
             bq = l3 + gamma*l2
             cq = l1 - gamma
             dq = l3 - gamma*l2
+#            print("a1 b1 a2 b2 originally: ", aq, bq, cq, dq)
 
             if abs(dq) < abs(bq):
                 dq = d / bq
@@ -512,6 +521,7 @@ class Solve1010:
                     bq = bq1
                     cq = cq1
                     dq = dq1
+#                    print("a1 b1 a2 b2 after line 512ish error correction: ", aq, bq, cq, dq)
                 else:
                     acx = acx1
                     bcx = bcx1
@@ -519,12 +529,15 @@ class Solve1010:
                     dcx = dcx1
         if realcase[whichcase] == 1:
             # If alpha1, beta1, alpha2, and beta2 are real first refine them through a Newton-Ralphson
+#            print("a1 b1 a2 b2 before refining: ", aq, bq, cq, dq)
             aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
+#            print("a1 b1 a2 b2 after refining: ", aq, bq, cq, dq)
             # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
             qroots = self._solve_quadratic(aq, bq, [None, None])
             final_roots[0:2] = qroots
             qroots = self._solve_quadratic(cq, dq, qroots)
             final_roots[2:4] = qroots
+#            print("final roots: ",final_roots)
         else:
             # Complex coefficients of p1 and p2
             if whichcase == 0: # d2 != 0 
@@ -532,8 +545,8 @@ class Solve1010:
                 # Calculate roots as those of p1(x) and p2(x) (end of sec. 2.1)
                 zx1 = -0.5*acx + sqrt(cdiskr)
                 zx2 = -0.5*acx - sqrt(cdiskr)
-                zmax = zx1 if abs(zx1) > abs(zx2) else zx2
-                zmin = bcx / zmax
+                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+                zxmin = bcx / zxmax
                 final_roots[0:4] = [
                     zxmin,
                     mpmath.conj(zxmin),
@@ -563,7 +576,7 @@ class Solve1010:
         if rfact != mpf(1):
             for k in range(4):
                 final_roots[k] *= rfact
-    return final_roots
+        return final_roots
 
 
 def sq(val: mpf):
