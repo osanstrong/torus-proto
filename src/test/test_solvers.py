@@ -26,12 +26,15 @@ def test_rootfinders_random():
 
         roots_np = solvers.calc_real_roots_numpy(coeffs)
         roots_fr_hp = solvers.calc_real_roots_ferrari_highp(coeffs)
+        roots_tt = solvers.calc_real_roots_1010(coeffs)
 
         # Remember this test isn't checking for precision, just that the math checks out
         roots_np = [float(r) for r in sorted(roots_np)]
         roots_fr_hp = [float(r) for r in sorted(roots_fr_hp)]
+        roots_tt = [float(r) for r in sorted(roots_tt)]
 
         assert_close(roots_np, roots_fr_hp, abs_tol=1e-6)
+        assert_close(roots_np, roots_tt, abs_tol=1e-6)
 
 
 # Tests of individual components / helper functions
