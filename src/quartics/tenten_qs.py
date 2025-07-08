@@ -15,6 +15,7 @@ import mpmath
 from mpmath import mpmathify, mpf, mpc
 from mpmath import sqrt, fabs as abs, power as pow, sign, chop
 from math import isclose
+import math
 
 
 MpfAble: type = float|int|str|mpf
@@ -135,8 +136,9 @@ class Solve1010:
         diskr = 9*sq(a) - 24*b
         # Eq. 87
         if (diskr > 0):
-            diskr = sqrt(diskr)
-            s = -2*b / (3*a + sign(a)*diskr)
+            diskr = sqrt(diskr) 
+            # s = -2*b / (3*a + sign(a)*diskr)
+            s = -2*b / (3*a + copysign(a, diskr))
         else:
             s = -a / 4
         
@@ -335,7 +337,10 @@ class Solve1010:
         diskr = sq(a) - 4*b
 #        print("diskr: ",diskr)
         if (diskr >= 0):
-            div = -a - sign(a)*sqrt(diskr)
+            # sign_a = sign(a)
+            # if sign_a == 0: sign_a = 1
+            # div = -a - sign_a*sqrt(diskr) 
+            div = -a - copysign(a, sqrt(diskr))
 #            print("div: ",div)
             zmax = div / mpf(2)
             zmin = mpf(0) if chop(zmax) == 0 else b / zmax
@@ -492,8 +497,8 @@ class Solve1010:
                 err0 = self._calc_err_abcd(a, b, c, d, aq, bq, cq, dq)
             elif realcase[0] == 0:
                 err0 = self._calc_err_abcd_complex(a, b, c, d, acx, bcx, ccx, dcx)
-            aq1, bq1, cq1, dq1 # Real
-            acx1, bcx1, ccx1, dcx1 # Complwx
+            # aq1, bq1, cq1, dq1 # Real
+            # acx1, bcx1, ccx1, dcx1 # Complwx
             err1 = mpf(0)
             if d3 <= 0:
                 realcase[1] = 1
@@ -578,6 +583,19 @@ class Solve1010:
                 final_roots[k] *= rfact
         return final_roots
 
+
+def sign_nz(val: MpfAble):
+    '''
+    More equivalent to 
+    '''
+    sign0 = sign(val)
+    return 1 if sign0 == 0 else sign0
+
+def copysign(sign_of: MpfAble, magn_of: MpfAble) -> mpf:
+    '''
+    Mimic std::copysign / math.copysign but make sure to keep it in mpf
+    '''
+    return mpf(math.copysign(1, mpf(sign_of))) * mpf(magn_of)
 
 def sq(val: mpf):
     return val*val
