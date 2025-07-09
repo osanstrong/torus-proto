@@ -7,6 +7,8 @@ Quartic Equations with No Compromise in Accuracy. ACM Trans. Math. Softw. 46, 2,
 https://doi.org/10.1145/3386241
 
 Written referencing OpenMC implementation: https://github.com/openmc-dev/openmc/blob/develop/src/external/quartic_solver.cpp
+
+Full license information described at end of file.
 '''
 
 from collections.abc import Iterable
@@ -608,4 +610,48 @@ def cbrt(val: mpc):
     if val.real >= 0:
         return mpmath.cbrt(val)
     else:
-        return -mpmath.cbrt(-val)               
+        return -mpmath.cbrt(-val)
+
+
+'''
+License information:
+This quartic solver is based on the Algorithm 1010 paper by Alberto Giacomo Orellana and Cristiano De Michele:
+
+Algorithm 1010:
+Alberto Giacomo Orellana and Cristiano De Michele. 2020. Algorithm 1010: Boosting Efficiency in Solving
+Quartic Equations with No Compromise in Accuracy. ACM Trans. Math. Softw. 46, 2, Article 20 (May 2020),
+28 pages.
+https://doi.org/10.1145/3386241
+
+Their work is licensed under the simplified BSD license, as follows:
+
+-------------------------------------------------------------------------------
+Copyright (c) 2020 Alberto Giacomo Orellana and Cristiano De Michele
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+     list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE PYNE DEVELOPMENT TEAM ``AS IS'' AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+--------------------------------------------------------------------------------
+
+Additionally, while not directly copied, this code does reference the existing OpenMC
+implementation, which may be found at
+https://github.com/openmc-dev/openmc/blob/develop/src/external/quartic_solver.cpp
+'''
