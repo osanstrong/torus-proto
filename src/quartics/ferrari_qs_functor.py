@@ -5,31 +5,8 @@ A Ferrari/Cardano solver implementing mpmath to allow for arbitrary precision
 
 Note
 ----
-Created with reference of https://github.com/NKrvavica/fqs
-
-Reference originally licensed under the MIT license below:
-
-|   MIT License
-|
-|   Copyright (c) 2019 NKrvavica
-|
-|   Permission is hereby granted, free of charge, to any person obtaining a copy
-|   of this software and associated documentation files (the "Software"), to deal
-|   in the Software without restriction, including without limitation the rights
-|   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-|   copies of the Software, and to permit persons to whom the Software is
-|   furnished to do so, subject to the following conditions:
-|
-|   The above copyright notice and this permission notice shall be included in all
-|   copies or substantial portions of the Software.
-|
-|   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-|   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-|   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-|   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-|   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-|   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-|   SOFTWARE.
+Created with reference to https://github.com/NKrvavica/fqs, whose MIT License statement,
+should it be necessary, is included at the end of the file.
 """
 
 import mpmath
@@ -43,6 +20,10 @@ MpfAble: type = float|int|str|mpf
 class SolveFerrari:
     def __init__(self, coeffs: list[MpfAble]):
         '''
+        Returns
+        -------
+        A list of (potentially complex) roots of the given quartic polynomial, as determined by the Ferrari-Cardano method 
+
         Parameters
         ----------
         coeffs : list[MpfAble]
@@ -64,11 +45,21 @@ class SolveFerrari:
 
         self._coeffs: list[mpf] = coeffs
 
-    def __call__(self, *args, **kwds):
+    def __call__(self, *args, **kwds) -> list[mpc]:
         
         return self._solve_normalized_quartic()
 
-    def _solve_normalized_quadratic(self, b, c):
+    def _solve_normalized_quadratic(self, b, c) -> tuple[mpc]:
+        '''
+        Returns
+        -------
+        The (potentially complex) roots of the given quadratic
+
+        Parameters
+        ----------
+        b, c : mpf
+            The coefficients of the quadratic x^2 + bx + c = 0
+        '''
         assert type(b) == type(c) == mpf
 
         # Predivide by 2
@@ -82,7 +73,17 @@ class SolveFerrari:
 
         return r1, r2
     
-    def _one_real_root_of_normalized_cubic(self, b, c, d):
+    def _one_real_root_of_normalized_cubic(self, b, c, d) -> mpf:
+        '''
+        Returns
+        -------
+        A real root for the given cubic equation, since at least one of the three must be real.
+
+        Parameters
+        ----------
+        b, c, d : mpf
+            The coeffients of the normalized cubic equation x^3 + bx^2 + cx + d = 0
+        '''
         assert type(b) == type(c) == type(d) == mpf
 
         # Repeating values
@@ -111,6 +112,14 @@ class SolveFerrari:
             return S_plus_U - third_b
 
     def _solve_normalized_quartic(self):
+        '''
+        The core function of the functor
+
+        Returns
+        -------
+        The (potentially complex) roots of the quartic polynomial stored in the functor.
+        Assumes that this polynomial has already been normalized such that self._coeffs[0] = 1
+        '''
         b, c, d, e = self._coeffs[1:5]
         assert type(b) == type(c) == type(d) == type(e) == mpf
         # 1/4 of b, because it comes up a lot
@@ -147,15 +156,61 @@ class SolveFerrari:
         return r0 - qb, r1 - qb, r2 - qb, r3 - qb
 
 
-def sq(val: mpf):
+def sq(val: mpc):
+    '''
+    Returns
+    -------
+    The square of the given value
+
+    Parameters
+    ----------
+    val: mpc
+        The value to square. May be complex
+    '''
     return val*val
 
 
 def cbrt(val: mpc):
     '''
-    Return cube root while maintaining sign
+    Returns
+    -------
+    The cube root of the given value, while maintaining its sign.
+
+    Parameters
+    ----------
+    val: mpc
+        The value, which may be complex, to take the cube root of.
     '''
     if val.real >= 0:
         return mpmath.cbrt(val)
     else:
         return -mpmath.cbrt(-val)
+
+
+'''
+The Ferrari-Cardano algorithm dates back to 1545, but this specific implementation was created
+referencing a comparable python implementation at https://github.com/NKrvavica/fqs. In case it
+is required, their MIT License statement is included below:
+
+|   MIT License
+|
+|   Copyright (c) 2019 NKrvavica
+|
+|   Permission is hereby granted, free of charge, to any person obtaining a copy
+|   of this software and associated documentation files (the "Software"), to deal
+|   in the Software without restriction, including without limitation the rights
+|   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+|   copies of the Software, and to permit persons to whom the Software is
+|   furnished to do so, subject to the following conditions:
+|
+|   The above copyright notice and this permission notice shall be included in all
+|   copies or substantial portions of the Software.
+|
+|   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+|   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+|   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+|   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+|   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+|   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+|   SOFTWARE.
+'''
