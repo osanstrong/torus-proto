@@ -50,6 +50,52 @@ class SolveFerrari:
         '''        
         return self._solve_normalized_quartic()
 
+    # Helper Functions
+
+    def _solve_normalized_quartic(self):
+        '''
+        The core function of the functor; solves the stored normalized quadratic equation.
+
+        Returns
+        -------
+        The (potentially complex) roots of the quartic polynomial stored in the functor.
+        Assumes that this polynomial has already been normalized such that self._coeffs[0] = 1
+        '''
+        b, c, d, e = self._coeffs[1:5]
+        assert type(b) == type(c) == type(d) == type(e) == mpf
+        # 1/4 of b, because it comes up a lot
+        qb = 0.25*b
+        qb2 = sq(qb)
+
+        # Subsidiary cubic equation
+        p = 3*qb2 - 0.5*c
+        q = b*qb2 - c*qb + 0.5*d
+        r = 3*qb2*qb2 - c*qb2 + d*qb - e
+
+        # Edge case: equation is biquadratic
+        if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
+            ir0, ir1 = self._solve_normalized_quadratic(-2*p, -r) 
+            r0 = mpmath.sqrt(ir0)
+            r1 = -r0
+            r2 = mpmath.sqrt(ir1)
+            r3 = -r2
+            return r0 - qb, r1 - qb, r2 - qb, r3 - qb
+        
+        # One real zero of subsidiary cubic
+        z0 = self._one_real_root_of_normalized_cubic(p, r, p*r - 0.5*sq(q))
+
+        s = mpmath.sqrt(2*p + 2*z0.real + 0j)
+        if s == 0:
+            t = z0*z0 + r
+        else:
+            t = -q / s
+
+        # Find shifted roots using quadratic equations    
+        r0, r1 = self._solve_normalized_quadratic(s.real, z0.real + t.real)
+        r2, r3 = self._solve_normalized_quadratic(-s.real, z0.real - t.real)
+        # Shift roots back to x
+        return r0 - qb, r1 - qb, r2 - qb, r3 - qb
+
     def _solve_normalized_quadratic(self, b, c) -> tuple[mpc]:
         '''
         Solves a quadratic equation ax^2 + bx + c = 0, where coefficients are scaled so a = 1.
@@ -115,50 +161,6 @@ class SolveFerrari:
             U = cbrt(-0.5*g - sqrt_h)
             S_plus_U = S + U
             return S_plus_U - third_b
-
-    def _solve_normalized_quartic(self):
-        '''
-        The core function of the functor; solves the stored normalized quadratic equation.
-
-        Returns
-        -------
-        The (potentially complex) roots of the quartic polynomial stored in the functor.
-        Assumes that this polynomial has already been normalized such that self._coeffs[0] = 1
-        '''
-        b, c, d, e = self._coeffs[1:5]
-        assert type(b) == type(c) == type(d) == type(e) == mpf
-        # 1/4 of b, because it comes up a lot
-        qb = 0.25*b
-        qb2 = sq(qb)
-
-        # Subsidiary cubic equation
-        p = 3*qb2 - 0.5*c
-        q = b*qb2 - c*qb + 0.5*d
-        r = 3*qb2*qb2 - c*qb2 + d*qb - e
-
-        # Edge case: equation is biquadratic
-        if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
-            ir0, ir1 = self._solve_normalized_quadratic(-2*p, -r) 
-            r0 = mpmath.sqrt(ir0)
-            r1 = -r0
-            r2 = mpmath.sqrt(ir1)
-            r3 = -r2
-            return r0 - qb, r1 - qb, r2 - qb, r3 - qb
-        
-        # One real zero of subsidiary cubic
-        z0 = self._one_real_root_of_normalized_cubic(p, r, p*r - 0.5*sq(q))
-
-        s = mpmath.sqrt(2*p + 2*z0.real + 0j)
-        if s == 0:
-            t = z0*z0 + r
-        else:
-            t = -q / s
-
-        # Find shifted roots using quadratic equations    
-        r0, r1 = self._solve_normalized_quadratic(s.real, z0.real + t.real)
-        r2, r3 = self._solve_normalized_quadratic(-s.real, z0.real - t.real)
-        # Shift roots back to x
-        return r0 - qb, r1 - qb, r2 - qb, r3 - qb
 
 
 def sq(val: mpc):
