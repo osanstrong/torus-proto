@@ -85,7 +85,7 @@ class SolveFerrari:
         z0 = self._one_real_root_of_normalized_cubic(p, r, p*r - 0.5*sq(q))
 
         s = mpmath.sqrt(2*p + 2*z0.real + 0j)
-        if s == 0:
+        if is_zero(s):
             t = z0*z0 + r
         else:
             t = -q / s
@@ -147,7 +147,7 @@ class SolveFerrari:
         g = third_b * (2*third_b2 - c) + d
         h = 0.25*sq(g) + f**3
 
-        if f == g == h == mpf(0): #Should this be converted to closeness test?
+        if are_zero([f, g, h]): #Should this be converted to closeness test?
             return -cbrt(d)
         elif h <= 0:
             j = mpmath.sqrt(-f)
@@ -196,6 +196,17 @@ def cbrt(val: mpc):
         return mpmath.cbrt(val)
     else:
         return -mpmath.cbrt(-val)
+
+
+def is_zero(val: mpf|mpc):
+    '''Returns whether the given value is 0 (in both real and imaginary components),
+    using mpmath's chop() function.'''
+    return mpmath.chop(val) == 0
+
+def are_zero(vals: Iterable[mpf|mpc]):
+    '''Returns whether the given values are all 0 (in both real and imaginary components),
+    using mpmath's chop() function.'''
+    return all(is_zero(val) for val in vals)
 
 
 '''
