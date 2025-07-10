@@ -157,10 +157,10 @@ class SolveFerrari:
 
         else:
             sqrt_h = mpmath.sqrt(h)
-            S = cbrt(-0.5*g + sqrt_h)
-            U = cbrt(-0.5*g - sqrt_h)
-            S_plus_U = S + U
-            return S_plus_U - third_b
+            s = cbrt(-0.5*g + sqrt_h)
+            u = cbrt(-0.5*g - sqrt_h)
+            s_plus_u = s + u
+            return s_plus_u - third_b
 
 
 def sq(val: mpc):
