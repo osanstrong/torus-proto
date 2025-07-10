@@ -20,10 +20,6 @@ MpfAble: type = float|int|str|mpf
 class SolveFerrari:
     def __init__(self, coeffs: list[MpfAble]):
         '''
-        Returns
-        -------
-        A list of (potentially complex) roots of the given quartic polynomial, as determined by the Ferrari-Cardano method 
-
         Parameters
         ----------
         coeffs : list[MpfAble]
@@ -31,22 +27,24 @@ class SolveFerrari:
         '''
         if not all(isinstance(c, MpfAble) for c in coeffs):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
-        if not len(coeffs) in [4,5]:
-            raise ValueError("Coefficients must either be a full 5 for a quartic, or the last 4 of one that has already been normalized (a=1)")
+        if not len(coeffs) == 5:
+            raise ValueError("The quartic equation must be represented using 5 coefficients.")
         
         coeffs = [mpf(c) for c in coeffs]
 
-        if len(coeffs) == 5:
+        a = coeffs[0]
+        if not a == 1:
             print("Need to normalize!")
-            a = coeffs[0]
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
-        else:
-            coeffs.insert(0,mpf(1))
 
         self._coeffs: list[mpf] = coeffs
 
     def __call__(self, *args, **kwds) -> list[mpc]:
-        
+        '''
+        Returns
+        -------
+        A list of (potentially complex) roots of the given quartic polynomial, as determined by the Ferrari-Cardano method 
+        '''        
         return self._solve_normalized_quartic()
 
     def _solve_normalized_quadratic(self, b, c) -> tuple[mpc]:

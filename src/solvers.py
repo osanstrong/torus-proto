@@ -39,7 +39,7 @@ def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf],
 
     Parameters
     ----------
-    coeffs : Iterable[mpf], length 4
+    coeffs : Iterable[mpf], length 5
         Quartic coefficients in the form [a, b, c, d, e] where ax^4 + bx^3 + cx^2 + dx + e = 0.
     normalized : bool, default True
         Whether the polynomial has already been normalized/scaled such that a = 1.
@@ -57,13 +57,13 @@ def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf],
         assert type(coeff) == mpf
 
     a, b, c, d, e = coeffs
-    if not a == mpf(1):
+    if not (normalized or a == 1):
         b /= a
         c /= a
         d /= a
         e /= a
         a = mpf(1)
 
-    cmp_roots = ferrari.SolveFerrari([b, c, d, e])()
+    cmp_roots = ferrari.SolveFerrari([a, b, c, d, e])()
     real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
     return real_roots
