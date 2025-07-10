@@ -42,7 +42,7 @@ class SolveFerrari:
 
         self._coeffs: list[mpf] = coeffs
 
-    def __call__(self, *args, **kwds) -> list[mpc]:
+    def __call__(self) -> list[mpc]:
         '''
         Returns
         -------
