@@ -1,5 +1,5 @@
 """
-Ferrari Quartic Solver (Mixed Precision)
+Ferrari Quartic Solver (Arbitrary Precision)
 
 A Ferrari/Cardano solver implementing mpmath to allow for arbitrary precision
 
@@ -9,6 +9,7 @@ Created with reference to https://github.com/NKrvavica/fqs, whose MIT License st
 should it be necessary, is included at the end of the file.
 """
 
+from collections.abc import Iterable
 import mpmath
 from mpmath import mpf, mpc
 from math import isclose
@@ -18,11 +19,13 @@ MpfAble: type = float|int|str|mpf
 
 
 class SolveFerrari:
-    def __init__(self, coeffs: list[MpfAble]):
+    def __init__(self, coeffs: Iterable[MpfAble]):
         '''
+        Solves the given quartic equation using the Ferrari-Cardano algorithm.
+        
         Parameters
         ----------
-        coeffs : list[MpfAble]
+        coeffs : Iterable[MpfAble], length 5
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
         if not all(isinstance(c, MpfAble) for c in coeffs):
@@ -34,7 +37,7 @@ class SolveFerrari:
 
         a = coeffs[0]
         if not a == 1:
-            print("Need to normalize!")
+            # Coefficients must be normalized
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
 
         self._coeffs: list[mpf] = coeffs
@@ -49,14 +52,16 @@ class SolveFerrari:
 
     def _solve_normalized_quadratic(self, b, c) -> tuple[mpc]:
         '''
-        Returns
-        -------
-        The (potentially complex) roots of the given quadratic
+        Solves a quadratic equation ax^2 + bx + c = 0, where coefficients are scaled so a = 1.
 
         Parameters
         ----------
         b, c : mpf
             The coefficients of the quadratic x^2 + bx + c = 0
+
+        Returns
+        -------
+        The (potentially complex) roots of the given quadratic
         '''
         assert type(b) == type(c) == mpf
 
@@ -73,14 +78,16 @@ class SolveFerrari:
     
     def _one_real_root_of_normalized_cubic(self, b, c, d) -> mpf:
         '''
-        Returns
-        -------
-        A real root for the given cubic equation, since at least one of the three must be real.
+        Solves for a single real root of the given normalized cubic equation.
 
         Parameters
         ----------
         b, c, d : mpf
             The coeffients of the normalized cubic equation x^3 + bx^2 + cx + d = 0
+
+        Returns
+        -------
+        A real root for the given cubic equation, since at least one of the three must be real.
         '''
         assert type(b) == type(c) == type(d) == mpf
 
@@ -111,7 +118,7 @@ class SolveFerrari:
 
     def _solve_normalized_quartic(self):
         '''
-        The core function of the functor
+        The core function of the functor; solves the stored normalized quadratic equation.
 
         Returns
         -------
@@ -156,28 +163,32 @@ class SolveFerrari:
 
 def sq(val: mpc):
     '''
-    Returns
-    -------
-    The square of the given value
+    Squares the given number.
 
     Parameters
     ----------
     val: mpc
         The value to square. May be complex
+
+    Returns
+    -------
+    The square of the given value
     '''
     return val*val
 
 
 def cbrt(val: mpc):
     '''
-    Returns
-    -------
-    The cube root of the given value, while maintaining its sign.
+    Returns the cube root of a number, preserving its original sign.
 
     Parameters
     ----------
     val: mpc
         The value, which may be complex, to take the cube root of.
+    
+    Returns
+    -------
+    The cube root of the given value, while maintaining its sign.
     '''
     if val.real >= 0:
         return mpmath.cbrt(val)
