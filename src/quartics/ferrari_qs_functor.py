@@ -113,7 +113,7 @@ class SolveFerrari:
 
         # Predivide by 2
         b0 = -0.5*b
-        discrim = b0*b0 - c
+        discrim = sq(b0) - c
         sqrt_discrim = mpmath.sqrt(discrim)
 
         # Roots
