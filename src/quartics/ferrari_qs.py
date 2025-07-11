@@ -11,7 +11,8 @@ should it be necessary, is included at the end of the file.
 
 from collections.abc import Iterable
 import mpmath
-from mpmath import mpf, mpc
+from mpmath import mpf, mpc # data types
+from mpmath import power # functions
 from math import isclose
 
 
@@ -28,7 +29,7 @@ class SolveFerrari:
         coeffs : Iterable[MpfAble], length 5
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
-        if not all(isinstance(c, MpfAble) for c in coeffs):
+        if not all_instances(coeffs, MpfAble):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
         if not len(coeffs) == 5:
             raise ValueError("The quartic equation must be represented using 5 coefficients.")
@@ -61,8 +62,8 @@ class SolveFerrari:
         The (potentially complex) roots of the quartic polynomial stored in the functor.
         '''
         assert self._coeffs[0] == 1
+        assert all_instances(self._coeffs, mpf)
         b, c, d, e = self._coeffs[1:5]
-        assert type(b) == type(c) == type(d) == type(e) == mpf
         # 1/4 of b, because it comes up a lot
         qb = 0.25*b
         qb2 = sq(qb)
@@ -86,7 +87,7 @@ class SolveFerrari:
 
         s = mpmath.sqrt(2*p + 2*z0.real + 0j)
         if is_zero(s):
-            t = z0*z0 + r
+            t = sq(z0) + r
         else:
             t = -q / s
 
@@ -109,7 +110,7 @@ class SolveFerrari:
         -------
         The (potentially complex) roots of the given quadratic
         '''
-        assert type(b) == type(c) == mpf
+        assert all_instances([b, c], mpf)
 
         # Predivide by 2
         b0 = -0.5*b
@@ -135,19 +136,19 @@ class SolveFerrari:
         -------
         A real root for the given cubic equation, since at least one of the three must be real.
         '''
-        assert type(b) == type(c) == type(d) == mpf
+        assert all_instances([b, c, d], mpf)
 
         # Repeating values
-        third = mpf(1)/mpf(3)
+        third = mpf("1/3")
         third_b = b*third
         third_b2 = sq(third_b)
 
         # Intermediate variables
         f = third*c - third_b2
         g = third_b * (2*third_b2 - c) + d
-        h = 0.25*sq(g) + f**3
+        h = 0.25*sq(g) + power(f, 3)
 
-        if are_zero([f, g, h]): #Should this be converted to closeness test?
+        if are_zero([f, g, h]):
             return -cbrt(d)
         elif h <= 0:
             j = mpmath.sqrt(-f)
@@ -198,15 +199,21 @@ def cbrt(val: mpc):
         return -mpmath.cbrt(-val)
 
 
-def is_zero(val: mpf|mpc):
+def is_zero(val: mpf|mpc) -> bool:
     '''Returns whether the given value is 0 (in both real and imaginary components),
     using mpmath's chop() function.'''
     return mpmath.chop(val) == 0
 
-def are_zero(vals: Iterable[mpf|mpc]):
+
+def are_zero(vals: Iterable[mpf|mpc]) -> bool:
     '''Returns whether the given values are all 0 (in both real and imaginary components),
     using mpmath's chop() function.'''
     return all(is_zero(val) for val in vals)
+
+
+def all_instances(vals: Iterable, of_type: type) -> bool:
+    '''Returns whether all the given values are mpf instances (excluding mpc)'''
+    return all(isinstance(val, of_type) for val in vals)
 
 
 '''
