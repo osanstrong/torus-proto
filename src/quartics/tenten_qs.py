@@ -37,7 +37,7 @@ class Solve1010:
         coeffs : list[MpfAble]
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
-        if not all(isinstance(c, MpfAble) for c in coeffs):
+        if not all_instances(coeffs, MpfAble):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str \
                 which can be converted thereinto")
         if not len(coeffs) == 5:
@@ -68,7 +68,7 @@ class Solve1010:
         assert type(b) == type(c) == mpf
         q = -b / mpf(3)
         r = 0.5 * c
-        if (r == 0):
+        if is_zero(r):
             # x^3 + bx = 0
             if b <= 0:
                 return sqrt(b)
@@ -98,7 +98,7 @@ class Solve1010:
                 a = -sign(r) * cbrt(
                     abs(r) + sqrt(abs(q))*abs(q)*sqrt(kk)
                 )
-            if a == 0: #TODO: Replace with isclose calls?
+            if is_zero(a): #TODO: Replace with isclose calls?
                 b = 0
             else: 
                 b = q / a
@@ -128,7 +128,7 @@ class Solve1010:
                 return m_sqrt_q * mpmath.cos((theta + mpf(2)*mpmath.pi) / mpf(3))
         else:
             a = -sign(r) * mpmath.cbrt(abs(r) + sqrt(r2 - q3))
-            if a == 0: #TODO: Should this be an isclose call instead?
+            if is_zero(a): #TODO: Should this be an isclose call instead?
                 b = 0
             else: 
                 b = q / a
@@ -196,14 +196,14 @@ class Solve1010:
         if abs(f) > maxtt*MACHEPS:
             for iter_i in range(8):
                 df = 3*x2 + g
-                if df == 0:
+                if is_zero(df):
                     break
 
                 x_old = x
                 x -= f/df
                 f_old = f
                 f = x*(x2 + g) + h
-                if f == 0:
+                if is_zero(f):
                     break
                 
                 if abs(f) >= abs(f_old):
@@ -213,42 +213,42 @@ class Solve1010:
     
     def _calc_err_ldlt(self, b, c, d, d2, l1, l2, l3) -> mpf:
         # Eq. 29 and 30
-        err = abs(d2 + sq(l1) + 2*l3) if chop(b) == 0 else abs(((d2 + sq(l1) + 2*l3) - b) / b)
-        err += abs(2*d2*l2 + 2*l1*l3) if chop(c) == 0 else abs(((2*d2*l2 + 2*l1*l3) - c) / c)
-        err += abs(d2*sq(l2) + sq(l3)) if chop(d) == 0 else abs(((d2*sq(l2) + sq(l3)) - d) / d)
+        err = abs(d2 + sq(l1) + 2*l3) if is_zero(b) else abs(((d2 + sq(l1) + 2*l3) - b) / b)
+        err += abs(2*d2*l2 + 2*l1*l3) if is_zero(c) else abs(((2*d2*l2 + 2*l1*l3) - c) / c)
+        err += abs(d2*sq(l2) + sq(l3)) if is_zero(d) else abs(((d2*sq(l2) + sq(l3)) - d) / d)
         return err
 
     def _calc_err_abcd_complex(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
         '''abcd should be real, aq-dq can be complex'''
         # Eq. 68 and 69 for complex alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
-        err = abs(bq*dq) if chop(d) == 0 else abs((bq*dq - d) / d)
-        err += abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
-        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
-        err += abs(aq + cq) if a == 0 else abs(((aq + cq) - a) / a)
+        err = abs(bq*dq) if is_zero(d) else abs((bq*dq - d) / d)
+        err += abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if is_zero(b) else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
 
     def _calc_err_abcd(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
         '''Where all inputs are real'''
         # Eq. 68 and 69 for real alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
-        err = abs(bq * dq) if chop(d) == 0 else abs((bq*dq - d) / d)
-        err += abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
-        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
-        err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
+        err = abs(bq * dq) if is_zero(d) else abs((bq*dq - d) / d)
+        err += abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if is_zero(b) else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
 
     def _calc_err_abc(self, a: mpf, b, c, aq: mpf, bq, cq, dq) -> mpf:
         # Eq. 48 through 51 
-        err = abs(bq*cq + aq*dq) if chop(c) == 0 else abs(((bq*cq + aq*dq) - c) / c)
-        err += abs(bq + aq*cq + dq) if chop(b) == 0 else abs(((bq + aq*cq + dq) - b) / b)
-        err += abs(aq + cq) if chop(a) == 0 else abs(((aq + cq) - a) / a)
+        err = abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
+        err += abs(bq + aq*cq + dq) if is_zero(b) else abs(((bq + aq*cq + dq) - b) / b)
+        err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
         
     def _newton_raphson(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]) -> list[mpf|mpc]:
         '''Refines the given list of roots for their matching coefficients.
         Defined in section 2.3 of manuscript. 
         '''
-        assert all(isinstance(c, mpf|mpc) for c in coeffs)
-        assert all(isinstance(r, mpf|mpc) for r in roots)
+        assert all_instances(coeffs, mpf|mpc)
+        assert all_instances(roots, mpf|mpc)
 
         a, b, c, d = self._coeffs[1:5]
 
@@ -266,7 +266,7 @@ class Solve1010:
         for k1 in range(4):
             #TODO: Should this be an isclose operation?
 #            print("fvec: ",fvec[k1],", vr: ",vr[k1])
-            errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
+            errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
 #            print("After adding: ",errf)
 #        print("Original errf: ",errf)
         for iter_i in range(8):
@@ -274,7 +274,7 @@ class Solve1010:
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
 #            print("Determinant: ",det)
-            if det == mpf(0): break
+            if is_zero(det): break
             Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4 # You don't really need to do this in python but I want it and I don't want to figure out a whole numpy mixp setup for this
             Jinv = [[0,]*4,]*4
             Jinv = mpmath.matrix(Jinv)
@@ -317,12 +317,12 @@ class Solve1010:
             errf = mpf(0)
             for k1 in range(4):
 #                print("fvec: ",fvec[k1],", vr: ",vr[k1])
-                errf += abs(fvec[k1]) if chop(vr[k1]) == 0 else abs(fvec[k1]/vr[k1])
+                errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
 #                print("After adding: ",errf)
 #            print("New errf: ",errf)
                 
 
-            if (chop(errf) == 0):
+            if (is_zero(errf)):
                 break
 
             if errf >= errf_old:
@@ -350,7 +350,7 @@ class Solve1010:
             div = -a - copysign(a, sqrt(diskr))
 #            print("div: ",div)
             zmax = div / mpf(2)
-            zmin = mpf(0) if chop(zmax) == 0 else b / zmax
+            zmin = mpf(0) if is_zero(zmax) else b / zmax
 
             roots[0] = mpc(zmax)
             roots[1] = mpc(zmin)
@@ -428,7 +428,7 @@ class Solve1010:
             n_sol += 1
         
         # Pick just one l2 and d2 pair
-        if n_sol == 0:
+        if is_zero(n_sol):
             l2 = d2 = mpf(0)
         else:
             # Pick the pair minimizing errors
@@ -464,11 +464,11 @@ class Solve1010:
             
             if abs(aq) < abs(cq):
                 n_sol = 0
-                if chop(dq) != 0:
+                if not is_zero(dq):
                     aqv[n_sol] = (c - bq*cq) / dq # Eq. 47
                     errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
                     n_sol += 1
-                if chop(cq) != 0:
+                if not is_zero(cq):
                     aqv[n_sol] = (b - dq - bq) / cq # Eq. 47
                     errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
                     n_sol += 1
@@ -591,20 +591,17 @@ class Solve1010:
         return final_roots
 
 
-def sign_nz(val: MpfAble):
-    '''
-    More equivalent to 
-    '''
-    sign0 = sign(val)
-    return 1 if sign0 == 0 else sign0
-
 def copysign(sign_of: MpfAble, magn_of: MpfAble) -> mpf:
     '''
     Mimic std::copysign / math.copysign but make sure to keep it in mpf
     '''
     return mpf(math.copysign(1, mpf(sign_of))) * mpf(magn_of)
 
+
 def sq(val: mpf):
+    '''
+    Shorthand for the square of a number, for readability
+    '''
     return val*val
 
 
@@ -617,6 +614,19 @@ def cbrt(val: mpc):
     else:
         return -mpmath.cbrt(-val)
 
+
+def is_zero(val: mpc, tolerance=None) -> bool:
+    '''
+    Returns whether the given value is zero, using mpmath's chop method
+    '''
+    return chop(val, tol=tolerance) == 0
+
+
+def all_instances(vals: list, of_type: type) -> bool:
+    '''
+    Shorthand for testing if all items in a list are of a type
+    '''
+    return all(isinstance(val, of_type) for val in vals)
 
 '''
 License information:
