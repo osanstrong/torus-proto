@@ -6,7 +6,7 @@ from collections.abc import Iterable
 import numpy as np
 import mpmath
 from mpmath import mpf, mpc
-import src.quartics.ferrari_qs_functor as ferrari
+import src.quartics.ferrari_qs as ferrari
 
 
 def calc_real_roots_numpy(coeffs: Iterable[float]) -> list[float]:
