@@ -38,22 +38,27 @@ class Solve1010:
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
         if not all(isinstance(c, MpfAble) for c in coeffs):
-            raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
-        if not len(coeffs) in [4,5]:
-            raise ValueError("Coefficients must either be a full 5 for a quartic, or the last 4 of one that has already been normalized (a=1)")
+            raise ValueError("All coefficients must be either mpf instances, or float, int, str \
+                which can be converted thereinto")
+        if not len(coeffs) == 5:
+            raise ValueError("A quartic equation must be defined with 5 coefficients [a, b, c, d, e] \
+                where ax^4 + bx^3 + cx^2 + dx + e = 0")
         
         coeffs = [mpf(c) for c in coeffs]
 
-        if len(coeffs) == 5:
-#            print("Need to normalize!")
-            a = coeffs[0]
+        a = coeffs[0]
+        if not a == 1:
+            # Need to normalize
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
-        else:
-            coeffs.insert(0,mpf(1))
 
         self._coeffs: list[mpf] = coeffs
 
-    def __call__(self, *args, **kwds):
+    def __call__(self) -> list[mpc]:
+        '''
+        Returns
+        -------
+        The (potentially complex) roots of the given quartic equation, as mpf/mpc instances
+        '''
         return self._solve_normalized_quartic()
     
     def _solve_depressed_cubic_handleinf(self, b: mpf, c: mpf) -> mpf|mpc:
