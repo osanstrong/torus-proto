@@ -59,8 +59,8 @@ class SolveFerrari:
         Returns
         -------
         The (potentially complex) roots of the quartic polynomial stored in the functor.
-        Assumes that this polynomial has already been normalized such that self._coeffs[0] = 1
         '''
+        assert self._coeffs[0] == 1
         b, c, d, e = self._coeffs[1:5]
         assert type(b) == type(c) == type(d) == type(e) == mpf
         # 1/4 of b, because it comes up a lot
