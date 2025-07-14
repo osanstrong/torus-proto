@@ -341,48 +341,16 @@ class Solve1010:
             roots[0] = mpc(-a + sqrt_d*1j) / mpf(2)
             roots[1] = mpc(-a - sqrt_d*1j) / mpf(2)
         return roots
-
-    def _solve_normalized_quartic(self) -> list[mpc]:
-        '''The central solve of the algorithm, performed on self._coeffs
-
-        Returns
-        -------
-        A list of the (potentially complex) roots of the given equation
-
+    
+    def _find_d2_l2(self, phi0: mpf, l1: mpf, l3: mpf) -> tuple[mpf]:
         '''
-        acx: mpc
-        bcx: mpc
-        ccx: mpc
-        dcx: mpc
+        Finds the optimal values of d2 and l2, based on values of l1 and l3
+        '''
+        a, b, c, d = self._coeffs[1:5]
         l2m = mpmath.matrix([0,] * 12)
         d2m = mpmath.matrix([0,] * 12)
         res = mpmath.matrix([0,] * 12)
-        errv = mpmath.matrix([0,] * 3)
-        aqv = mpmath.matrix([0,] * 3)
-        cqv = mpmath.matrix([0,] * 3)
-        realcase: list[int] = [None, None]
-
-        final_roots = [None,]*4
-
-        # Assuming they've already been normalized
-        a, b, c, d = self._coeffs[1:5]
-
-        phi0 = self._calc_phi0(False)
-
-        # Rescale polynomial if necessary
-        rfact = mpf(1)
-        if mpmath.isnan(phi0) or mpmath.isinf(phi0):
-            rfact = QUART_RESCAL_FACT
-            a /= rfact
-            rfact2 = rfact * rfact
-            b /= rfact2
-            c /= rfact2*rfact
-            d /= rfact2*rfact2
-            self._coeffs[1:5] = a, b, c, d
-            phi0 = self._calc_phi0(True) 
         
-        l1 = a / 2 # Eq. 16
-        l3 = b/mpf(6) + phi0/2 # Eq. 18
         del2 = c - a*l3 # Defined just after Eq. 27
         n_sol = 0 
         bl311 = 2*b/mpf(3) - phi0 - sq(l1) # d2 as defined in Eq. 20
@@ -423,11 +391,48 @@ class Solve1010:
             
             d2 = d2m[kmin]
             l2 = l2m[kmin]
-        
+
+        return d2, l2
 
 
+    def _solve_normalized_quartic(self) -> list[mpc]:
+        '''The central solve of the algorithm, performed on self._coeffs
+
+        Returns
+        -------
+        A list of the (potentially complex) roots of the given equation
+
+        '''
+        errv = mpmath.matrix([0,] * 3)
+        aqv = mpmath.matrix([0,] * 3)
+        cqv = mpmath.matrix([0,] * 3)
+        realcase: list[int] = [None, None]
+
+
+        # Assuming they've already been normalized
+        a, b, c, d = self._coeffs[1:5]
+
+        phi0 = self._calc_phi0(False)
+
+        # Rescale polynomial if necessary
+        rfact = mpf(1)
+        if mpmath.isnan(phi0) or mpmath.isinf(phi0):
+            rfact = QUART_RESCAL_FACT
+            a /= rfact
+            rfact2 = rfact * rfact
+            b /= rfact2
+            c /= rfact2*rfact
+            d /= rfact2*rfact2
+            self._coeffs[1:5] = a, b, c, d
+            phi0 = self._calc_phi0(True) 
         
-        whichcase: int = 0 # Later used as an index
+        l1 = a / 2 # Eq. 16
+        l3 = b/mpf(6) + phi0/2 # Eq. 18
+        
+        d2, l2 = self._find_d2_l2(phi0, l1, l3)
+        
+        # whichcase: int = 0 # Later used as an index
+        use_d2zero_case: bool = False # Isolated variable because whether we treat it this way is context-dependent
         # aq, bq, cq, dq # Just to clarify what variables we're about to assign to
         if d2 < 0:
             # Case I eq. 37 through 40
@@ -437,7 +442,6 @@ class Solve1010:
             bq = l3 + gamma*l2
             cq = l1 - gamma
             dq = l3 - gamma*l2
-
 
             if abs(dq) < abs(bq):
                 dq = d / bq
@@ -509,7 +513,8 @@ class Solve1010:
                 dcx1 = mpmath.conj(bcx1)
                 err1 = self._calc_err_abcd_complex(a, b, c, d, acx1, bcx1, ccx1, dcx1)
             if realcase[0] == -1 or err1 < err0:
-                whichcase = 1 # d2 = 0
+                # whichcase = 1 # d2 = 0
+                use_d2zero_case = True
                 if realcase[1] == 1:
                     aq = aq1
                     bq = bq1
@@ -521,54 +526,85 @@ class Solve1010:
                     bcx = bcx1
                     ccx = ccx1
                     dcx = dcx1
-        if realcase[whichcase] == 1:
-            # If alpha1, beta1, alpha2, and beta2 are real first refine them through a Newton-Ralphson
-            aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
 
-            # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
-            qroots = self._solve_quadratic(aq, bq, [None, None])
-            final_roots[0:2] = qroots
-            qroots = self._solve_quadratic(cq, dq, qroots)
-            final_roots[2:4] = qroots
+        
+        
+        whichcase = 1 if use_d2zero_case else 0
+        use_real = realcase[whichcase] == 1
 
+        # a1, b1, a2, b2, use_real = self._find_alphas_betas()
+        # use_d2zero_case = (whichcase == 0)
+        if use_real:
+            # If alpha1, beta1, alpha2, and beta2 are real
+            final_roots = self._final_roots_polyn_real(aq, bq, cq, dq)
         else:
             # Complex coefficients of p1 and p2
-            if whichcase == 0: # d2 != 0 
-                cdiskr = 0.25*sq(acx) - bcx
-                # Calculate roots as those of p1(x) and p2(x) (end of sec. 2.1)
-                zx1 = -0.5*acx + sqrt(cdiskr)
-                zx2 = -0.5*acx - sqrt(cdiskr)
-                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
-                zxmin = bcx / zxmax
-                final_roots[0:4] = [
-                    zxmin,
-                    mpmath.conj(zxmin),
-                    zxmax,
-                    mpmath.conj(zxmax)
-                ]
-            else: # d2 ~= 0
-                # Theoretically this path should never be reached
-                cdiskr = sqrt(sq(acx) - 4*bcx)
-                zx1 = -0.5 * (acx + cdiskr)
-                zx2 = -0.5 * (acx - cdiskr)
-                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
-                zxmin = dcx / zxmax
-                final_roots[0:2] = [
-                    zxmax,
-                    zxmin
-                ]
-                cdiskr = sqrt(sq(ccx) - 4*dcx)
-                zx1 = -0.5 * (ccx + cdiskr)
-                zx2 = -0.5 * (ccx - cdiskr)
-                zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
-                zxmin = dcx / zxmax
-                final_roots[2:4] = [
-                    zxmax,
-                    zxmin
-                ]
+            final_roots = self._final_roots_polyn_complex(acx, bcx, ccx, dcx, use_d2zero_case)
+
         if rfact != mpf(1):
             for k in range(4):
                 final_roots[k] *= rfact
+        return final_roots
+
+    def _find_alphas_betas() -> tuple[mpc, mpc, mpc, mpc, bool]:
+        '''Returns alpha1, beta1, alpha2, and beta2,
+        and a boolean noting whether these values are complex
+        TODO: Can this be reduced by manually checking if said values are complex?'''  
+
+
+    def _final_roots_polyn_real(self, aq, bq, cq, dq) -> list[mpc]:
+        '''Returns the final roots in the case where p1 and p2 are real'''
+        final_roots = []
+
+        # First refine through newton-raphson method
+        a, b, c, d = self._coeffs[1:5]
+        aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
+
+        # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
+        qroots = self._solve_quadratic(aq, bq, [None, None])
+        final_roots[0:2] = qroots
+        qroots = self._solve_quadratic(cq, dq, qroots)
+        final_roots[2:4] = qroots
+        
+        return final_roots
+
+    def _final_roots_polyn_complex(self, acx, bcx, ccx, dcx, d2_is_zero: bool) -> list[mpc]:
+        '''Returns the final roots in the case where p1 and p2 are complex'''
+        final_roots = []
+
+        if not d2_is_zero: # d2 != 0 
+            cdiskr = 0.25*sq(acx) - bcx
+            # Calculate roots as those of p1(x) and p2(x) (end of sec. 2.1)
+            zx1 = -0.5*acx + sqrt(cdiskr)
+            zx2 = -0.5*acx - sqrt(cdiskr)
+            zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+            zxmin = bcx / zxmax
+            final_roots[0:4] = [
+                zxmin,
+                mpmath.conj(zxmin),
+                zxmax,
+                mpmath.conj(zxmax)
+            ]
+        else: # d2 ~= 0
+            # Theoretically this path should never be reached
+            cdiskr = sqrt(sq(acx) - 4*bcx)
+            zx1 = -0.5 * (acx + cdiskr)
+            zx2 = -0.5 * (acx - cdiskr)
+            zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+            zxmin = dcx / zxmax
+            final_roots[0:2] = [
+                zxmax,
+                zxmin
+            ]
+            cdiskr = sqrt(sq(ccx) - 4*dcx)
+            zx1 = -0.5 * (ccx + cdiskr)
+            zx2 = -0.5 * (ccx - cdiskr)
+            zxmax = zx1 if abs(zx1) > abs(zx2) else zx2
+            zxmin = dcx / zxmax
+            final_roots[2:4] = [
+                zxmax,
+                zxmin
+            ]
         return final_roots
 
 
