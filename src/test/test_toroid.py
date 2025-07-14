@@ -8,7 +8,7 @@ from numpy.linalg import norm
 import pytest
 import src.toroid
 from src.toroid import EllipticToroid, MpfAble
-from src.toroid import hypot2
+from src.toroid import l2norm2
 import src.solvers
 from src.solvers import calc_real_roots_ferrari_highp
 from src.solvers import calc_real_roots_1010
@@ -124,7 +124,7 @@ def test_inside_through_center_diag():
 def test_inside_through_center_diagoffset():
     tor = EllipticToroid(5, 1, 1)
     diag = mpfl([COS_45, COS_45 * 0.8, 0.03])
-    diag = scl(diag, 1/mpmath.sqrt(hypot2(diag)))
+    diag = scl(diag, 1/mpmath.sqrt(l2norm2(diag)))
     s = scl(diag, 5)
     u = scl(diag, -1)
     inters_ferr = tor.ray_intersection_distances(

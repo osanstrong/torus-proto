@@ -131,8 +131,8 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(hypot2(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
+        if not math.isclose(l2norm2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
         t_vals = solve_quartic(to_mpfs(poly))
@@ -165,8 +165,8 @@ class EllipticToroid:
             as returned by ray_intersection_polynomial()), and returns its real roots.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(hypot2(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
+        if not math.isclose(l2norm2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         t_vals = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
         return [add(ray_pos, scl(ray_dir, t)) for t in sorted(t_vals)]
@@ -199,8 +199,8 @@ class EllipticToroid:
         
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(hypot2(ray_dir), 1): 
-            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(hypot2(ray_dir))})")
+        if not math.isclose(l2norm2(ray_dir), 1): 
+            raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         distances = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
         if not distances: 
@@ -232,7 +232,7 @@ class EllipticToroid:
         d = mpmath.sqrt(sq(x) + sq(y))
         f = 2 * (d-r) / (d*sq(a))
         n = [x*f, y*f, (2*z) / sq(b)]
-        length = mpmath.sqrt(hypot2(n))
+        length = mpmath.sqrt(l2norm2(n))
         if length == 0:
             return None
         return [comp/length for comp in n]
@@ -289,7 +289,7 @@ class EllipticToroid:
 
         [ax, ay, az] = to_mpfs(ray_dir)
 
-        assert math.isclose(hypot2([ax, ay, az]), mpf(1))
+        assert math.isclose(l2norm2([ax, ay, az]), mpf(1))
 
         # Intermediate terms, from Graphics Gems
         f = 1 - sq(az)
@@ -326,10 +326,11 @@ def sq(val: mpf|float) -> mpf|float:
     return val*val
 
 
-def hypot2(vals: Iterable[mpf|float]) -> mpf|float:
+def l2norm2(vals: Iterable[mpf|float]) -> mpf|float:
     '''
     Returns
     -------
+    The L2 Norm squared:
     The sum of the squares of every value in the given Iterable
 
     Parameters
