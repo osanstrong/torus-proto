@@ -188,7 +188,7 @@ class Solve1010:
         x3 = x * x2
         gx = g * x
         f = x * (x2 + g) + h
-        # TODO: ???? Do these need to be separate lines
+
         maxtt = max(abs(x3), abs(gx), abs(h))
         
         if abs(f) > maxtt*MACHEPS:
@@ -269,7 +269,7 @@ class Solve1010:
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
             if is_zero(det): break
-            Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4 # You don't really need to do this in python but I want it and I don't want to figure out a whole numpy mixp setup for this
+            Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4
             Jinv = [[0,]*4,]*4
             Jinv = mpmath.matrix(Jinv)
             Jinv[0,0] = x02
@@ -348,7 +348,7 @@ class Solve1010:
     def _solve_normalized_quartic(self) -> list[mpc]:
         '''The central solve of the algorithm, performed on self._coeffs
 
-        Returns 
+        Returns
         -------
         A list of the (potentially complex) roots of the given equation
 
@@ -526,7 +526,6 @@ class Solve1010:
                     dcx = dcx1
         if realcase[whichcase] == 1:
             # If alpha1, beta1, alpha2, and beta2 are real first refine them through a Newton-Ralphson
-
             aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
 
             # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
