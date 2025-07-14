@@ -93,9 +93,9 @@ class Solve1010:
                 return mpf(-2) * sqrt_q * mpmath.cos((theta + mpf(2)*mpmath.pi) / mpf(3))
         else:
             if abs(q) < abs(r):
-                a = -sign(r) * cbrt(abs(r) * (mpf(1)+sqrt(kk)))
+                a = -sign(r) * signed_cbrt(abs(r) * (mpf(1)+sqrt(kk)))
             else:
-                a = -sign(r) * cbrt(
+                a = -sign(r) * signed_cbrt(
                     abs(r) + sqrt(abs(q))*abs(q)*sqrt(kk)
                 )
             if is_zero(a): 
@@ -586,9 +586,9 @@ def sq(val: mpf):
     return val*val
 
 
-def cbrt(val: mpc):
+def signed_cbrt(val: mpc):
     '''
-    Return cube root while maintaining sign
+    Return cube root while maintaining sign anti-symmetry, i.e. cbrt(-x) == -cbrt(x)
     '''
     if val.real >= 0:
         return mpmath.cbrt(val)
