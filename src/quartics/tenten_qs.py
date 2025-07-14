@@ -586,18 +586,12 @@ class Solve1010:
         return final_roots
 
 
-def sign_nz(val: MpfAble):
-    '''
-    More equivalent to 
-    '''
-    sign0 = sign(val)
-    return 1 if sign0 == 0 else sign0
-
 def copysign(sign_of: MpfAble, magn_of: MpfAble) -> mpf:
     '''
     Mimic std::copysign / math.copysign but make sure to keep it in mpf
     '''
     return mpf(math.copysign(1, mpf(sign_of))) * mpf(magn_of)
+
 
 def sq(val: mpf):
     return val*val
