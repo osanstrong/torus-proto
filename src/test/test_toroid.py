@@ -140,6 +140,8 @@ def test_inside_through_center_diagoffset():
 
 # Ray straight up from above the torus shouldn't intersect, and ray straight down from the same should intersect twice
 def test_vertical():
+    last_prec = mpmath.mp.prec
+    mpmath.mp.prec = 250 #Oddly specific precision that doesn't cause problems with ferrari solver
     tor = EllipticToroid(5, 1, "0.000000000000001")
     s = mpfl([0, 5.0, "2.3"])
     u_up = mpfl([0, 0, 1.0])
@@ -157,6 +159,7 @@ def test_vertical():
     assert_intersection_points(tor, s, u_down, [[0,5.0,tor.ver_rad], [0,5.0,-tor.ver_rad]])
     assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_ferrari_highp), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
     assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_1010), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
+    mpmath.prec = last_prec
 
 
 # Points that should be inside
