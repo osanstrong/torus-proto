@@ -21,10 +21,11 @@ import math
 
 
 MpfAble: type = float|int|str|mpf
-# Currently evaluated for double precision, TODO: should we include a method for arbitrary precision?
+
+
 # cbrt(MAX_DOUBLE) / 1.618034
 CUBIC_RESCAL_FACT = 3.488062113727083e+102
-# pow(DBL_MAX,1.0/4.0)/1.618034;
+# pow(MAX_DOUBLE, 0.25) / 1.618034
 QUART_RESCAL_FACT = 7.156344627944542e+76
 MACHEPS = sys.float_info.epsilon
 
@@ -32,6 +33,8 @@ MACHEPS = sys.float_info.epsilon
 class Solve1010:
     def __init__(self, coeffs: list[MpfAble]):
         '''
+        Solves the given quartic polynomial using Algorithm 1010
+
         Parameters
         ----------
         coeffs : list[MpfAble]
@@ -165,14 +168,12 @@ class Solve1010:
                 # Rescale again
                 rfact = CUBIC_RESCAL_FACT
                 rfact2 = sq(rfact)
-                ggss = gg / rfact2 #TODO: Why does openmc's 1010 do these twice?
-                hhss = hh / rfact2
                 dqss = sq / rfact2
                 aqs = aq / rfact
                 bqs = bq / rfact
                 cqs = cq / rfact
-                ggss = sq(bqs) / mpf(9)
-                hhss = aqs * cqs
+                ggss = sq(bqs) / mpf(9) # aka gg / rfact2
+                hhss = aqs * cqs # aka hh / rfact2
                 # TODO: do we need to get rid of any sq() instances here to preserve intended order of operations for precision?
                 g = hhss - 4*dqss - 3*ggss
                 h = (8*dqss + hhss - 2*ggss)*bqs/mpf(3) - cqs*(cqs/rfact) - (dq/rfact)*sq(aqs)
@@ -188,9 +189,7 @@ class Solve1010:
         gx = g * x
         f = x * (x2 + g) + h
         # TODO: ???? Do these need to be separate lines
-        maxtt = max(abs(x3), abs(gx))
-        if abs(h) > maxtt:
-            maxtt = abs(h)
+        maxtt = max(abs(x3), abs(gx), abs(h))
         
         if abs(f) > maxtt*MACHEPS:
             for iter_i in range(8):
