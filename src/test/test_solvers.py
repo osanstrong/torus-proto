@@ -1,16 +1,19 @@
 import math
 import numpy as np
 import mpmath
-from mpmath import mpf
+from mpmath import mpf, mpc
 from src import solvers
 from src.quartics import tenten_qs
-from src.test.test_toroid import assert_close
+from src.test.test_toroid import assert_close, mpfl
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
 
-FLOAT_PRECISION = 256 + (53 - 64) # Definitely not how it works, but I like keeping it just short of a power of two, like a 64-bit float having 53 bits of precision
-mpmath.mp.prec = FLOAT_PRECISION
+DOUBLE_PREC = 53
+QUAD_PREC = 113
+HIGH_PREC = 999
+
+mpmath.mp.prec = HIGH_PREC
 
 # Quick test script to verify that solvers have consistent responses
 def test_rootfinders_random():
@@ -63,24 +66,30 @@ def test_1010_subcubics():
 #     num_trials = 100
 #     spread = 200
 #     for i in range(num_trials):
-#         coeffs = glob_rng.normal(0, spread / 2, 2)
+#         coeffs = glob_rng.normal(0, spread / 2, 4)
 
-#         roots_np = np.roots([1, 0, coeffs[0], coeffs[1]])
+#         roots_np = np.roots([1] + [c for c in coeffs])
 
 #         coeffs = [mpf(c) for c in coeffs]
 
-#         minroot = min(roots_np)
-#         maxroot = max(roots_np)
+#         roots_iter = [mpc(r) for r in roots_np]
+        
+#         minroot = roots_iter[0]
+#         maxroot = roots_iter[-1]
 
-#         delta = 15
+#         delta = 1.5
 
 #         miniter = minroot - delta
 #         maxiter = maxroot + delta
 
+#         roots_iter[0] = miniter
+#         roots_iter[-1] = maxiter
+
 #         # Make sure it converges upon to the original root
 #         for iter in range(10):
-#             min_b4 = miniter
-#             max_b4 = maxiter
-
-#             miniter = 
+#             roots_iter = tenten_qs.Solve1010([mpf(1)]+coeffs)._newton_raphson(coeffs, roots_iter)
+        
+#         assert math.isclose(roots_iter[0].real, minroot.real)
+#         assert math.isclose(roots_iter[-1].real, maxroot.real)
+        
     

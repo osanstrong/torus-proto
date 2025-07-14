@@ -21,7 +21,8 @@ glob_rng = np.random.default_rng(seed=glob_rand_seed)
 COS_45 = mpmath.sqrt(0.5)
 
 DEFAULT_PREC: int = 53
-HIGH_PREC: int = DEFAULT_PREC + (8192-64)
+QUAD_PREC: int = 113
+HIGH_PREC: int = 999
 mpmath.mp.prec = HIGH_PREC
 
 
