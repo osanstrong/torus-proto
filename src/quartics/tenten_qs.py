@@ -37,19 +37,17 @@ class Solve1010:
         coeffs : list[MpfAble]
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
-        if not all(isinstance(c, MpfAble) for c in coeffs):
+        if not all_instances(coeffs, MpfAble):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
-        if not len(coeffs) in [4,5]:
-            raise ValueError("Coefficients must either be a full 5 for a quartic, or the last 4 of one that has already been normalized (a=1)")
+        if not len(coeffs) == 5:
+            raise ValueError("The quartic equation must be represented using 5 coefficients.")
         
         coeffs = [mpf(c) for c in coeffs]
 
-        if len(coeffs) == 5:
-
-            a = coeffs[0]
+        a = coeffs[0]
+        if not a == 1:
+            # Coefficients must be normalized
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
-        else:
-            coeffs.insert(0,mpf(1))
 
         self._coeffs: list[mpf] = coeffs
 
@@ -60,7 +58,7 @@ class Solve1010:
         '''Returns the dominant root of the depressed cubic x^3 + bx + c, where b & c are large
         See Section 2.2 of 1010 manuscript
         '''
-        assert type(b) == type(c) == mpf
+        assert all_instances([b, c], mpf)
         q = -b / mpf(3)
         r = 0.5 * c
         if is_zero(r):
@@ -103,7 +101,7 @@ class Solve1010:
         '''Returns the dominant root of the depressed cubic x^3 + bx + c
         See Section 2.2 of 1010 manuscript
         '''
-        assert type(b) == type(c) == mpf
+        assert all_instances([b, c], mpf)
         q = -b / mpf(3)
         r = 0.5 * c
 
@@ -608,6 +606,11 @@ def cbrt(val: mpc):
         return mpmath.cbrt(val)
     else:
         return -mpmath.cbrt(-val)
+
+
+def all_instances(vals: Iterable, of_type: type) -> bool:
+    '''Returns whether all the given values are mpf instances (excluding mpc)'''
+    return all(isinstance(val, of_type) for val in vals)
 
 
 '''
