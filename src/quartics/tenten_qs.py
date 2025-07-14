@@ -15,18 +15,15 @@ from collections.abc import Iterable
 import sys
 import mpmath
 from mpmath import mpmathify, mpf, mpc
-from mpmath import sqrt, fabs as abs, power as pow, sign, chop
-from math import isclose
-import math
+from mpmath import sqrt, sign, chop
+from math import isclose, copysign as math_copysign
 
 
 MpfAble: type = float|int|str|mpf
 
 
-# cbrt(MAX_DOUBLE) / 1.618034
-CUBIC_RESCAL_FACT = 3.488062113727083e+102
-# pow(MAX_DOUBLE, 0.25) / 1.618034
-QUART_RESCAL_FACT = 7.156344627944542e+76
+CUBIC_RESCAL_FACT = 3.488062113727083e+102 # Equivalent to: cbrt(MAX_DOUBLE) / 1.618034
+QUART_RESCAL_FACT = 7.156344627944542e+76 # Equivalent to: pow(MAX_DOUBLE, 0.25) / 1.618034
 MACHEPS = sys.float_info.epsilon
 
 
@@ -579,7 +576,7 @@ def copysign(sign_of: MpfAble, magn_of: MpfAble) -> mpf:
     '''
     Mimic std::copysign / math.copysign but make sure to keep it in mpf
     '''
-    return mpf(math.copysign(1, mpf(sign_of))) * mpf(magn_of)
+    return mpf(math_copysign(1, mpf(sign_of))) * mpf(magn_of)
 
 
 def sq(val: mpf):
