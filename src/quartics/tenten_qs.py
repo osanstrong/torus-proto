@@ -96,7 +96,7 @@ class Solve1010:
                 a = -sign(r) * cbrt(
                     abs(r) + sqrt(abs(q))*abs(q)*sqrt(kk)
                 )
-            if is_zero(a): #TODO: Replace with isclose calls?
+            if is_zero(a): 
                 b = 0
             else: 
                 b = q / a
@@ -142,7 +142,6 @@ class Solve1010:
         # Eq. 87
         if (diskr > 0):
             diskr = sqrt(diskr) 
-            # s = -2*b / (3*a + sign(a)*diskr)
             s = -2*b / (3*a + copysign(a, diskr))
         else:
             s = -a / 4
@@ -245,8 +244,8 @@ class Solve1010:
         '''Refines the given list of roots for their matching coefficients.
         Defined in section 2.3 of manuscript. 
         '''
-        assert all(isinstance(c, mpf|mpc) for c in coeffs)
-        assert all(isinstance(r, mpf|mpc) for r in roots)
+        assert all_instances(coeffs, mpf|mpc)
+        assert all_instances(roots, mpf|mpc)
 
         a, b, c, d = self._coeffs[1:5]
 
@@ -262,13 +261,10 @@ class Solve1010:
 
         errf = mpf(0)
         for k1 in range(4):
-            #TODO: Should this be an isclose operation?
-
             errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
 
 
         for iter_i in range(8):
-
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
 
@@ -317,9 +313,6 @@ class Solve1010:
 
                 errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
 
-
-                
-
             if is_zero(errf):
                 break
 
@@ -328,14 +321,11 @@ class Solve1010:
                 for k1 in range(4):
                     x[k1] = x_old[k1]
                 break
-            # else:
-
 
         # Save results
         roots.clear()
         for i in range(4):
             roots.append(x[i])
-        # return locals()
         return roots
 
     def _solve_quadratic(self, a: mpf, b: mpf, roots: Iterable) -> Iterable[mpc]:
@@ -481,7 +471,7 @@ class Solve1010:
                 
                 cq = cqv[kmin]
             realcase[0] = 1
-        elif d2 > 0: # Should these be choperations? Probably don't need to, seeing as impl already handles "approximately zero"
+        elif d2 > 0: 
             # Case II eq. 53 through 56
             gamma = sqrt(d2)
             acx = mpc(l1 + gamma*1j)
@@ -500,7 +490,7 @@ class Solve1010:
             elif realcase[0] == 0:
                 err0 = self._calc_err_abcd_complex(a, b, c, d, acx, bcx, ccx, dcx)
             # aq1, bq1, cq1, dq1 # Real
-            # acx1, bcx1, ccx1, dcx1 # Complwx
+            # acx1, bcx1, ccx1, dcx1 # Complex
             err1 = mpf(0)
             if d3 <= 0:
                 realcase[1] = 1
