@@ -51,7 +51,12 @@ class Solve1010:
 
         self._coeffs: list[mpf] = coeffs
 
-    def __call__(self, *args, **kwds):
+    def __call__(self) -> list[mpc]:
+        '''
+        Returns
+        -------
+        A list of (potentially complex) roots for the given polynomial
+        '''
         return self._solve_normalized_quartic()
     
     def _solve_depressed_cubic_handleinf(self, b: mpf, c: mpf) -> mpf|mpc:
