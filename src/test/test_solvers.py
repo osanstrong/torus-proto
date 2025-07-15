@@ -3,7 +3,7 @@ import numpy as np
 import mpmath
 from mpmath import mpf, mpc
 from src import solvers
-from src.quartics import tenten_qs
+from src.quartics import alg1010
 from src.test.test_toroid import assert_close
 
 glob_rand_seed = 1999
@@ -53,11 +53,11 @@ def test_1010_subcubics():
 
         coeffs = [mpf(c) for c in coeffs]
 
-        droot = tenten_qs.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic(coeffs[0], coeffs[1])
+        droot = alg1010.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic(coeffs[0], coeffs[1])
         result = droot**3 + coeffs[0]*droot + coeffs[1]
         assert math.isclose(result, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+20))
 
-        droot_big = tenten_qs.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic_handleinf(coeffs[0], coeffs[1])
+        droot_big = alg1010.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic_handleinf(coeffs[0], coeffs[1])
         result_big = droot_big**3 + coeffs[0]*droot_big + coeffs[1]
         assert math.isclose(result_big, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+20))
 
@@ -87,7 +87,7 @@ def test_1010_subcubics():
 
 #         # Make sure it converges upon to the original root
 #         for iter in range(10):
-#             roots_iter = tenten_qs.Solve1010([mpf(1)]+coeffs)._newton_raphson(coeffs, roots_iter)
+#             roots_iter = alg1010.Solve1010([mpf(1)]+coeffs)._newton_raphson(coeffs, roots_iter)
         
 #         assert math.isclose(roots_iter[0].real, minroot.real)
 #         assert math.isclose(roots_iter[-1].real, maxroot.real)

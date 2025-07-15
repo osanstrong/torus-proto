@@ -6,9 +6,9 @@ from collections.abc import Iterable
 import numpy as np
 import mpmath
 from mpmath import mpf, mpc, chop
-import src.quartics.ferrari_qs as ferrari
-import src.quartics.tenten_qs as tenten
-import src.quartics.numpy_qs as numpyq
+import src.quartics.ferrari as ferrari
+import src.quartics.alg1010 as alg1010
+import src.quartics.numpyqs as numpyqs
 
 BASE_IMAG_THRESHOLD = None # Use default mpmath tolerance for chop()
 
@@ -41,11 +41,11 @@ def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf
     if isinstance(solver, str):
         match solver:
             case "tt" | "Alg1010":
-                solver = tenten.Alg1010Solver
+                solver = alg1010.Alg1010Solver
             case "fr" | "Ferrari":
                 solver = ferrari.FerrariSolver
             case "np" | "numpy":
-                solver = numpyq.NumpySolver
+                solver = numpyqs.NumpySolver
     all_roots: list[mpc] = solver(coeffs)()
     real_roots = [r.real for r in all_roots if is_real(r, tolerance=imag_threshold)]
     return real_roots

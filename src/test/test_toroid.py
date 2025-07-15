@@ -7,9 +7,9 @@ from numpy.linalg import norm
 import pytest
 from src.toroid import EllipticToroid, MpfAble
 from src.toroid import l2norm2
-from src.quartics.tenten_qs import Alg1010Solver
-from src.quartics.ferrari_qs import FerrariSolver
-from src.quartics.numpy_qs import NumpySolver
+from src.quartics.alg1010 import Alg1010Solver
+from src.quartics.ferrari import FerrariSolver
+from src.quartics.numpyqs import NumpySolver
 import mpmath
 from mpmath import mpf
 
