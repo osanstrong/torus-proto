@@ -287,11 +287,10 @@ class Alg1010Solver:
         err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
         
-    def _newton_raphson(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]) -> list[mpf|mpc]:
-        '''Refines the given list of roots for their matching coefficients.
+    def _newton_raphson_abab(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]) -> list[mpf|mpc]:
+        '''Refines the roots abab for their matching coefficients.
         Defined in section 2.3 of manuscript. 
         '''
-        assert all_instances(coeffs, mpf|mpc)
         assert all_instances(roots, mpf|mpc)
 
         a, b, c, d = self._coeffs[1:5]
@@ -576,18 +575,18 @@ class Alg1010Solver:
             return a1, b1, a2, b2, False, use_case_3
 
 
-    def _final_roots_polyn_real(self, aq, bq, cq, dq) -> list[mpc]:
+    def _final_roots_polyn_real(self, a1, b1, a2, b2) -> list[mpc]:
         '''Returns the final roots in the case where p1 and p2 are real'''
         final_roots = []
 
         # First refine through newton-raphson method
         a, b, c, d = self._coeffs[1:5]
-        aq, bq, cq, dq = self._newton_raphson([a, b, c, d], [aq, bq, cq, dq])
+        a1, b1, a2, b2 = self._newton_raphson_abab([a, b, c, d], [a1, b1, a2, b2])
 
         # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
-        qroots = self._solve_quadratic(aq, bq, [None, None])
+        qroots = self._solve_quadratic(a1, b1, [None, None])
         final_roots[0:2] = qroots
-        qroots = self._solve_quadratic(cq, dq, qroots)
+        qroots = self._solve_quadratic(a2, b2, qroots)
         final_roots[2:4] = qroots
         
         return final_roots
