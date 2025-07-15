@@ -16,8 +16,14 @@ HIGH_PREC = 999
 
 mpmath.mp.prec = HIGH_PREC
 
+
+# -------------------------
+# Holistic tests of solvers
+# -------------------------
+
+
 # Quick test script to verify that solvers have consistent responses
-def test_rootfinders_random():
+def test_solvers_random():
 
     num_trials = 100
     spread = 200
@@ -41,7 +47,9 @@ def test_rootfinders_random():
         assert_close(roots_np, roots_tt, abs_tol=1e-6)
 
 
+# -------------------------------------------------
 # Tests of individual components / helper functions
+# -------------------------------------------------
 
 
 def test_1010_subcubics():
