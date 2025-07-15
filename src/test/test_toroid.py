@@ -9,9 +9,12 @@ import pytest
 import src.toroid
 from src.toroid import EllipticToroid, MpfAble
 from src.toroid import l2norm2
-import src.solvers
-from src.solvers import calc_real_roots_ferrari_highp
-from src.solvers import calc_real_roots_1010
+from src.quartics.tenten_qs import Alg1010Solver
+from src.quartics.ferrari_qs import FerrariSolver
+from src.quartics.numpy_qs import NumpySolver
+# import src.solvers
+# from src.solvers import FerrariSolver
+# from src.solvers import Alg1010Solver
 import mpmath
 from mpmath import mpf
 
@@ -49,9 +52,9 @@ def assert_intersections(
     ray_dir: Iterable[mpf],
     known_t_list: list[mpf],
 ):
-    fr_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_ferrari_highp)
-    tt_t_list_all = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_1010, include_negative=True)
-    tt_t_list = tor.ray_intersection_distances(ray_src, ray_dir, calc_real_roots_1010)
+    fr_t_list = tor.ray_intersection_distances(ray_src, ray_dir, FerrariSolver)
+    tt_t_list_all = tor.ray_intersection_distances(ray_src, ray_dir, Alg1010Solver, include_negative=True)
+    tt_t_list = tor.ray_intersection_distances(ray_src, ray_dir, Alg1010Solver)
     assert_close(sorted(fr_t_list), known_t_list)
     assert_close(sorted(tt_t_list), known_t_list)
 
@@ -62,8 +65,8 @@ def assert_intersection_points(
     ray_dir: Iterable[mpf],
     known_point_list: list[Iterable[mpf]]
 ):
-    fr_point_list = tor.ray_intersection_points(ray_pos, ray_dir, calc_real_roots_ferrari_highp)
-    tt_point_list = tor.ray_intersection_points(ray_pos, ray_dir, calc_real_roots_1010)
+    fr_point_list = tor.ray_intersection_points(ray_pos, ray_dir, FerrariSolver)
+    tt_point_list = tor.ray_intersection_points(ray_pos, ray_dir, Alg1010Solver)
     for i in range(len(fr_point_list)):
         assert_close(fr_point_list[i], known_point_list[i])
         assert_close(tt_point_list[i], known_point_list[i])
@@ -74,10 +77,10 @@ def test_center():
     tor = EllipticToroid(5, 1, 1)
     s = [0, 0, 1]
     u = [0, 0, -1]
-    assert len(tor.ray_intersection_distances(s, u, calc_real_roots_ferrari_highp)) == 0
-    assert tor.distance_to_boundary(s, u, calc_real_roots_ferrari_highp) is None
-    assert len(tor.ray_intersection_distances(s, u, calc_real_roots_1010)) == 0
-    assert tor.distance_to_boundary(s, u, calc_real_roots_1010) is None
+    assert len(tor.ray_intersection_distances(s, u, FerrariSolver)) == 0
+    assert tor.distance_to_boundary(s, u, FerrariSolver) is None
+    assert len(tor.ray_intersection_distances(s, u, Alg1010Solver)) == 0
+    assert tor.distance_to_boundary(s, u, Alg1010Solver) is None
 
 
 # Ray starting inside and going out away from center should have 1 intersection
@@ -87,8 +90,8 @@ def test_inside_out():
     u = [0, 1, 0]
     assert_intersections(tor, s, u, [1])
     assert_intersection_points(tor, s, u, [[0,6,0]])
-    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_ferrari_highp), 1)
-    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_1010), 1)
+    assert isclose(tor.distance_to_boundary(s, u, FerrariSolver), 1)
+    assert isclose(tor.distance_to_boundary(s, u, Alg1010Solver), 1)
 
 
 # Ray starting inside and going towards center should have 3 intersections
@@ -102,8 +105,8 @@ def test_inside_through_center():
         [0,-4,0],
         [0,-6,0]
     ])
-    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_ferrari_highp), 1)
-    assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_1010), 1)
+    assert isclose(tor.distance_to_boundary(s, u, FerrariSolver), 1)
+    assert isclose(tor.distance_to_boundary(s, u, Alg1010Solver), 1)
 
 
 # Repeat but along the a 45 degree diagonal
@@ -117,8 +120,8 @@ def test_inside_through_center_diag():
         u = scl(diag, -1)
         assert_intersections(tor, s, u, [1, 9, 11])
         assert_intersection_points(tor, s, u, [scl(diag,4), scl(diag,-4), scl(diag,-6)])
-        assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_ferrari_highp), 1)
-        assert isclose(tor.distance_to_boundary(s, u, calc_real_roots_1010), 1)
+        assert isclose(tor.distance_to_boundary(s, u, FerrariSolver), 1)
+        assert isclose(tor.distance_to_boundary(s, u, Alg1010Solver), 1)
 
 
 # Repeat but with a further offset
@@ -129,10 +132,10 @@ def test_inside_through_center_diagoffset():
     s = scl(diag, 5)
     u = scl(diag, -1)
     inters_ferr = tor.ray_intersection_distances(
-        s, u, calc_real_roots_ferrari_highp
+        s, u, FerrariSolver
     )
     inters_1010 = tor.ray_intersection_distances(
-        s, u, calc_real_roots_1010
+        s, u, Alg1010Solver
     )
     assert len(inters_ferr) == 3
     assert len(inters_1010) == 3
@@ -147,18 +150,18 @@ def test_vertical():
     u_up = mpfl([0, 0, 1.0])
     u_down = mpfl([0, 0, -1.0])
     polyn = tor._ray_intersection_polynomial(s, u_up)
-    raw_dists = calc_real_roots_ferrari_highp(polyn)
-    np_raw_dists = src.solvers.calc_real_roots_numpy([float(val) for val in polyn])
-    dists = tor.ray_intersection_distances(s, u_up, calc_real_roots_ferrari_highp)
+    raw_dists = FerrariSolver(polyn)
+    np_raw_dists = NumpySolver([float(val) for val in polyn])()
+    dists = tor.ray_intersection_distances(s, u_up, FerrariSolver)
     assert len(dists) == 0
-    assert len(tor.ray_intersection_distances(s, u_up, calc_real_roots_1010)) == 0
-    assert tor.distance_to_boundary(s, u_up, calc_real_roots_ferrari_highp) is None
-    assert tor.distance_to_boundary(s, u_up, calc_real_roots_1010) is None
+    assert len(tor.ray_intersection_distances(s, u_up, Alg1010Solver)) == 0
+    assert tor.distance_to_boundary(s, u_up, FerrariSolver) is None
+    assert tor.distance_to_boundary(s, u_up, Alg1010Solver) is None
     polyn_down = tor._ray_intersection_polynomial(s, u_down)
     assert_intersections(tor, s, u_down, [s[2] - tor.ver_rad, s[2] + tor.ver_rad])
     assert_intersection_points(tor, s, u_down, [[0,5.0,tor.ver_rad], [0,5.0,-tor.ver_rad]])
-    assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_ferrari_highp), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
-    assert isclose(tor.distance_to_boundary(s, u_down, calc_real_roots_1010), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
+    assert isclose(tor.distance_to_boundary(s, u_down, FerrariSolver), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
+    assert isclose(tor.distance_to_boundary(s, u_down, Alg1010Solver), s[2] - tor.ver_rad, abs_tol=0, rel_tol=mpmath.power(2, -mpmath.mp.prec))
     mpmath.prec = last_prec
 
 
@@ -229,9 +232,9 @@ def test_value_errors():
     zero = [0,0,0]
     
     # Intersectors should not acccept zero vectors for direction
-    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, zero, calc_real_roots_ferrari_highp)
-    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, zero, calc_real_roots_ferrari_highp)
-    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, zero, calc_real_roots_ferrari_highp)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, zero, FerrariSolver)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, zero, FerrariSolver)
+    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, zero, FerrariSolver)
 
     # Surface normal should only work on surface points
     with pytest.raises(ValueError): norm = tor.surface_normal([0,0,0])
@@ -241,12 +244,12 @@ def test_value_errors():
     mag_one = [0,1,0]
     not_one = [1,2,3]
     # Intersection methods should only accept vectors with mag 1
-    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, not_one, calc_real_roots_ferrari_highp)
-    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, not_one, calc_real_roots_ferrari_highp)
-    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, not_one, calc_real_roots_ferrari_highp) 
-    inters = tor.ray_intersection_distances(start, mag_one, calc_real_roots_ferrari_highp)
-    inters = tor.ray_intersection_points(start, mag_one, calc_real_roots_ferrari_highp)
-    dist = tor.distance_to_boundary(start, mag_one, calc_real_roots_ferrari_highp)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_distances(start, not_one, FerrariSolver)
+    with pytest.raises(ValueError): inters = tor.ray_intersection_points(start, not_one, FerrariSolver)
+    with pytest.raises(ValueError): dist = tor.distance_to_boundary(start, not_one, FerrariSolver) 
+    inters = tor.ray_intersection_distances(start, mag_one, FerrariSolver)
+    inters = tor.ray_intersection_points(start, mag_one, FerrariSolver)
+    dist = tor.distance_to_boundary(start, mag_one, FerrariSolver)
     
 
 

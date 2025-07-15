@@ -5,6 +5,7 @@ import numpy as np
 from numpy import linalg as la
 import mpmath
 from mpmath import mpf, mpc
+from src.solvers import calc_real_roots
 
 '''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
 specifically Celeritas and ORANGE.
@@ -25,6 +26,8 @@ Purdue University. Graphics Gems II: ISBN 0-12-064481-9, Published 1991 Academic
 
 # Type hint for acceptable arguments to make an mpf mixed-precision float instance
 type MpfAble = float|int|str|mpf
+# Type hint for either a functor or a string corresponding to one
+type FuncOrName = type|str
 
 
 class EllipticToroid:
@@ -108,7 +111,8 @@ class EllipticToroid:
         self,
         ray_pos: Iterable[MpfAble],
         ray_dir: Iterable[MpfAble],
-        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        # solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        quartic_solver: FuncOrName,
         include_negative: bool = False
     ) -> list[mpf]:
         '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
@@ -135,7 +139,7 @@ class EllipticToroid:
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
-        t_vals = solve_quartic(to_mpfs(poly))
+        t_vals = calc_real_roots(poly, quartic_solver)
         pos_vals = [t for t in t_vals if t > 0]
         return t_vals if include_negative else pos_vals
 
@@ -143,7 +147,8 @@ class EllipticToroid:
         self,
         ray_pos: Iterable[mpf],
         ray_dir: Iterable[mpf],
-        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        # solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        quartic_solver: FuncOrName
     ) -> list[list[mpf]]:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
         and returns them in a list, sorted by increasing distance.
@@ -168,14 +173,15 @@ class EllipticToroid:
         if not math.isclose(l2norm2(ray_dir), 1): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
-        t_vals = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
+        t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quartic_solver)
         return [add(ray_pos, scl(ray_dir, t)) for t in sorted(t_vals)]
 
     def distance_to_boundary( 
         self,
         ray_pos: Iterable[mpf],
         ray_dir: Iterable[mpf],
-        solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        # solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
+        quartic_solver: FuncOrName
     ) -> float | None:
         '''Solves for the distance to the first intersection of the given ray with this torus.
         If no intersection is found, returns None.
@@ -202,7 +208,7 @@ class EllipticToroid:
         if not math.isclose(l2norm2(ray_dir), 1): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
-        distances = self.ray_intersection_distances(ray_pos, ray_dir, solve_quartic)
+        distances = self.ray_intersection_distances(ray_pos, ray_dir, quartic_solver)
         if not distances: 
             return None
         return min(distances)

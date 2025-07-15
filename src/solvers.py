@@ -5,12 +5,12 @@ Works with the cmath form of complex numbers, specifically the mpmath implementa
 from collections.abc import Iterable
 import numpy as np
 import mpmath
-from mpmath import mpf, mpc, fabs, chop
+from mpmath import mpf, mpc, chop
 import src.quartics.ferrari_qs as ferrari
 import src.quartics.tenten_qs as tenten
 import src.quartics.numpy_qs as numpyq
 
-BASE_IMAG_THRESHOLD = mpf("1e-16")
+BASE_IMAG_THRESHOLD = None # Use default mpmath tolerance for chop()
 
 def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf = BASE_IMAG_THRESHOLD) -> list[mpf]:
     '''
@@ -35,6 +35,7 @@ def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf
     -------
     The roots found by the given solver, which have an imaginary component smaller than a certain threshold
     '''
+    type_func = type(solver)
     assert isinstance(solver, type|str)
     # If a string is given, find which solver they meant
     if isinstance(solver, str):
@@ -101,7 +102,7 @@ def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf],
         assert type(coeff) == mpf
 
     cmp_roots = ferrari.FerrariSolver(coeffs)()
-    real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
+    real_roots = [root.real for root in cmp_roots if is_real(root, tolerance=imag_threshold)]
     return real_roots
 
 
@@ -130,6 +131,6 @@ def calc_real_roots_1010(coeffs: Iterable[mpf],
         assert isinstance(coeff, mpf)
     
     cmp_roots = tenten.Alg1010Solver(coeffs)()
-    real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
+    real_roots = [root.real for root in cmp_roots if is_real(root, tolerance=imag_threshold)]
     return real_roots
     
