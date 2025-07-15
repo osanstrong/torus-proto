@@ -533,11 +533,11 @@ class Solve1010:
 
         if d2 < 0:
             # Case I, coeffs are real, eq. 37 through 40
-            aq, bq, cq, dq = self._find_abab_case1(l1, l3, d2, l2)
+            a1, b1, a2, b2 = self._find_abab_case1(l1, l3, d2, l2)
             d2_realcase = REAL
         elif d2 > 0: 
             # Case II, coeffs are complex, eq. 53 through 56
-            acx, bcx, ccx, dcx = self._find_abab_case2(l1, l3, d2, l2)
+            a1, b1, a2, b2 = self._find_abab_case2(l1, l3, d2, l2)
             d2_realcase = COMP
         else:
             d2_realcase = ZERO_EXACTLY # d2 is 0
@@ -548,42 +548,36 @@ class Solve1010:
         if d2_realcase == ZERO_EXACTLY or is_zero(d2, tolerance=almost_zero): #Separate checks because in that margin of almost zero, either one might be better
             d3 = d - sq(l3)
             if d2_realcase == REAL: # I think it's possible this is a c++ typing thing and these can be condensed into one function since mpf and mpc are interchangable
-                err0 = self._calc_err_abcd(aq, bq, cq, dq)
+                err0 = self._calc_err_abcd(a1, b1, a2, b2)
             elif d2_realcase == COMP:
-                err0 = self._calc_err_abcd_complex(acx, bcx, ccx, dcx)
+                err0 = self._calc_err_abcd_complex(a1, b1, a2, b2)
             else: # If the case were 0, there's no meaningful error because we just kinda have to use it 
                 err0 = mpf(0)
             
             if d3 <= 0:
                 # Case III values are real
                 d3_realcase = REAL
-                a_c3, b_c3, c_c3, d_c3 = self._find_abab_case3_real(l1, l3, d3)
-                err1 = self._calc_err_abcd(a, b, c, d, a_c3, b_c3, c_c3, d_c3) # Eq. 68
+                a1_c3, b1_c3, a2_c3, b2_c3 = self._find_abab_case3_real(l1, l3, d3)
+                err1 = self._calc_err_abcd(a, b, c, d, a1_c3, b1_c3, a2_c3, b2_c3) # Eq. 68
             else:
                 # Case III values are complex
                 d3_realcase = COMP
-                a_c3, b_c3, c_c3, d_c3 = self._find_abab_case3_comp(l1, l3, d3)
-                err1 = self._calc_err_abcd_complex(a, b, c, d, a_c3, b_c3, c_c3, d_c3)
+                a1_c3, b1_c3, a2_c3, b2_c3 = self._find_abab_case3_comp(l1, l3, d3)
+                err1 = self._calc_err_abcd_complex(a, b, c, d, a1_c3, b1_c3, a2_c3, b2_c3)
             if d2_realcase == ZERO_EXACTLY or err1 < err0:
                 use_case_3 = True
-                if d3_realcase == REAL:
-                    aq = a_c3
-                    bq = b_c3
-                    cq = c_c3
-                    dq = d_c3
-                else:
-                    acx = a_c3
-                    bcx = b_c3
-                    ccx = c_c3
-                    dcx = d_c3
+                a1 = a1_c3
+                b1 = b1_c3
+                a2 = a2_c3
+                b2 = b2_c3
 
         final_roots_realcase = d3_realcase if use_case_3 else d2_realcase
         use_real = (final_roots_realcase == REAL)
 
         if use_real:
-            return aq, bq, cq, dq, True, use_case_3 # TODO: I wanna simplify this structure somehow
+            return a1, b1, a2, b2, True, use_case_3 # TODO: I wanna simplify this structure somehow
         else:
-            return acx, bcx, ccx, dcx, False, use_case_3
+            return a1, b1, a2, b2, False, use_case_3
 
 
     def _final_roots_polyn_real(self, aq, bq, cq, dq) -> list[mpc]:
