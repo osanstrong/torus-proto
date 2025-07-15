@@ -52,6 +52,7 @@ class Alg1010Solver:
             coeffs = [coeffs[i]/a for i in range(len(coeffs))]
 
         self._coeffs: list[mpf] = coeffs
+        self._max_nr_abab_iters: int = 8 #Store this as a variable in case user wishes to manually override this
 
     def __call__(self) -> list[mpc]:
         '''
@@ -86,6 +87,7 @@ class Alg1010Solver:
             d /= rfact2*rfact2
             self._coeffs[1:5] = a, b, c, d
             phi0 = self._calc_phi0(True) 
+        self._rfact = rfact
         
         l1 = a / 2 # Eq. 16
         l3 = b/mpf(6) + phi0/2 # Eq. 18
@@ -93,6 +95,7 @@ class Alg1010Solver:
         d2, l2 = self._find_d2_l2(phi0, l1, l3)
         
         a1, b1, a2, b2, use_real, used_case3 = self._find_abab(phi0, l1, l3, d2, l2)
+        self._used_real_abab = use_real
 
         if use_real:
             # If alpha1, beta1, alpha2, and beta2 are real
@@ -286,86 +289,115 @@ class Alg1010Solver:
         err += abs(bq + aq*cq + dq) if is_zero(b) else abs(((bq + aq*cq + dq) - b) / b)
         err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
+
+    def _newton_raphson_f_ep(self, z_vec) -> tuple[list[mpf], mpf]:
+        '''Finds the F vector and  error as descsribed in Eq. 104, 105
+        '''
+        a, b, c, d = self._coeffs[1:5]
+        a1, b1, a2, b2 = z_vec
+
+        f_vec = [
+            b1*b2 - d,
+            b1*a2 + a1*b2 - c,
+            b1 + a1*a2 + b2 - b,
+            a1 + a2 - a
+        ] # Eq. 104
+
+        # Eq. 105:
+        ep_a = abs(f_vec[3]) if is_zero(a) else abs(f_vec[3] / a) # Eq. 49
+        ep_b = abs(f_vec[2]) if is_zero(b) else abs(f_vec[2] / b) # Eq. 50
+        ep_c = abs(f_vec[1]) if is_zero(c) else abs(f_vec[1] / c) # Eq. 51
+        ep_d = abs(f_vec[0]) if is_zero(d) else abs(f_vec[0] / d) # Eq. 69
+        ep_t = ep_a + ep_b + ep_c + ep_d # Eq. 105
+
+        return f_vec, ep_t
+
+
         
-    def _newton_raphson_abab(self, coeffs: list[mpf|mpc], roots: list[mpf|mpc]) -> list[mpf|mpc]:
+    def _newton_raphson_abab(self, roots: list[mpf|mpc]) -> list[mpf|mpc]:
         '''Refines the roots abab for their matching coefficients.
         Defined in section 2.3 of manuscript. 
         '''
         assert all_instances(roots, mpf|mpc)
 
         a, b, c, d = self._coeffs[1:5]
+        z = [mpmathify(root) for root in roots]
 
-        # It might be unnecessary to go this explicit in making copies
-        x = [mpmathify(root) for root in roots]
-        vr = [mpmathify(coeffs[i]) for i in [3, 2, 1, 0]]
-        fvec = [
-            x[1]*x[3] - d,
-            x[1]*x[2] + x[0]*x[3] - c,
-            x[1] + x[0]*x[2] + x[3] - b,
-            x[0] + x[2] - a
-        ]
+        #Step 1, 2
+        f_vec, ep_t = self._newton_raphson_f_ep(z)
 
-        errf = mpf(0)
-        for k1 in range(4):
-            errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
-
-        for iter_i in range(8):
-            x02 = x[0] - x[2]
-            det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
+        last_iter = 0
+        for iter_i in range(self._max_nr_abab_iters):
+            last_iter = iter_i
+            # Step 3
+            if is_zero(ep_t):
+                break
+            
+            a1, b1, a2, b2 = z
+            
+            # Step 4
+            c1 = a1 - a2
+            c2 = b2 - b1
+            c3 = b1*a2 - a1*b2
+            
+            det = sq(b1) - b1*(a2*(a1-a2) + 2*b2) + b2*(a1*c1 + b2)
+            
+            # Step 5 early, because the rest of step 4 might be redundant
             if is_zero(det): break
-            j_mat_inv: list[list[mpf|mpc]] = [[None,]*4,]*4
+            
+            # Step 4 cont. (Note: j_mat_inv itself isn't scaled by det yet, that comes in step 7)
             j_mat_inv = [[0,]*4,]*4
             j_mat_inv = mpmath.matrix(j_mat_inv)
-            j_mat_inv[0,0] = x02
+            j_mat_inv[0,0] = c1
 
-            j_mat_inv[0,1] = x[3] - x[1]
-            j_mat_inv[0,2] = x[1] * x[2] - x[0] * x[3]
-            j_mat_inv[0,3] = -x[1] * j_mat_inv[0,1] - x[0] * j_mat_inv[0,2]
-            j_mat_inv[1,0] = x[0] * j_mat_inv[0,0] + j_mat_inv[0,1]
-            j_mat_inv[1,1] = -x[1] * j_mat_inv[0,0]
-            j_mat_inv[1,2] = -x[1] * j_mat_inv[0,1]
-            j_mat_inv[1,3] = -x[1] * j_mat_inv[0,2]
-            j_mat_inv[2,0] = -j_mat_inv[0,0]
-            j_mat_inv[2,1] = -j_mat_inv[0,1]
-            j_mat_inv[2,2] = -j_mat_inv[0,2]
-            j_mat_inv[2,3] = j_mat_inv[0,2] * x[2] + j_mat_inv[0,1] * x[3]
-            j_mat_inv[3,0] = -x[2] * j_mat_inv[0,0] - j_mat_inv[0,1]
-            j_mat_inv[3,1] = j_mat_inv[0,0] * x[3]
-            j_mat_inv[3,2] = x[3] * j_mat_inv[0,1]
-            j_mat_inv[3,3] = x[3] * j_mat_inv[0,2]
+            j_mat_inv[0,1] = c2
+            j_mat_inv[0,2] = c3
+            j_mat_inv[0,3] = -b1*c2 - a1*c3
+            j_mat_inv[1,0] = a1*c1 + c2
+            j_mat_inv[1,1] = -b1*c1
+            j_mat_inv[1,2] = -b1*c2
+            j_mat_inv[1,3] = -b1*c3
+            j_mat_inv[2,0] = -c1
+            j_mat_inv[2,1] = -c2
+            j_mat_inv[2,2] = -c3
+            j_mat_inv[2,3] = a2*c3 + b2*c2
+            j_mat_inv[3,0] = -a2*c1 - c2
+            j_mat_inv[3,1] = b2*c1
+            j_mat_inv[3,2] = b2*c2
+            j_mat_inv[3,3] = b2*c3
  
-            dx = mpmath.matrix([0,]*4)
+            dz = mpmath.matrix([0,]*4)
             for k1 in range(4):
                 for k2 in range(4):
-                    dx[k1] += j_mat_inv[k1,k2] * fvec[k2]
+                    dz[k1] = dz[k1] + j_mat_inv[k1,k2]*f_vec[k2]
 
-            x_old = [mpmathify(xi) for xi in x]
-            
+            # Step 6
+            z_old = [mpmathify(z_i) for z_i in z]
+
+            # Sep 7
             for k1 in range(4): 
-                x[k1] -= dx[k1]/det
+                z[k1] -= dz[k1]/det
 
-            fvec[0] = x[1]*x[3] - d
-            fvec[1] = x[1]*x[2] + x[0]*x[3] - c
-            fvec[2] = x[1] + x[0]*x[2] + x[3] - b
-            fvec[3] = x[0] + x[2] - a
+            # Step 8
+            ep_t_old = ep_t
+            f_vec, ep_t = self._newton_raphson_f_ep(z)
 
-            errf_old = errf
-            errf = mpf(0)
-            for k1 in range(4):
-                errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
-
-            if is_zero(errf):
+            # Step 9
+            if is_zero(ep_t):
                 break
-
-            if errf >= errf_old:
+            
+            # Step 10
+            if ep_t >= ep_t_old:
                 for k1 in range(4):
-                    x[k1] = x_old[k1]
+                    z[k1] = z_old[k1]
                 break
 
+        # Save this for diagnostics
+        self._last_nr_iter = last_iter
         # Save results
         roots.clear()
         for i in range(4):
-            roots.append(x[i])
+            roots.append(z[i])
         return roots
 
     def _solve_quadratic(self, a: mpf, b: mpf, roots: Iterable) -> Iterable[mpc]:
@@ -442,9 +474,10 @@ class Alg1010Solver:
         where the calculation doesn't immediately turn complex'''
         a, b, c, d = self._coeffs[1:5]
 
-        errv = mpmath.matrix([0,] * 3)
-        aqv = mpmath.matrix([0,] * 3)
-        cqv = mpmath.matrix([0,] * 3)
+        # Instantiate with nan values to catch any typos we make
+        errv = mpmath.matrix([mpmath.nan,] * 3)
+        aqv = mpmath.matrix([mpmath.nan,] * 3)
+        cqv = mpmath.matrix([mpmath.nan,] * 3)
         gamma = sqrt(-d2)
 
         aq = l1 + gamma
@@ -479,6 +512,27 @@ class Alg1010Solver:
                     kmin = k
                     errmin = errv[k]
             
+            aq = aqv[kmin]
+        else:
+            n_sol = 0
+            if not is_zero(bq):
+                cqv[n_sol] = (c - aq*dq) / bq # Eq. 53
+                errv[n_sol] = self._calc_err_abc(aq, bq, cqv[n_sol], dq)
+                n_sol += 1
+            if not is_zero(aq):
+                cqv[n_sol] = (b - bq - dq) / aq # Eq. 53
+                errv[n_sol] = self._calc_err_abc(aq, bq, cqv[n_sol], dq)
+                n_sol += 1
+            cqv[n_sol] = a - aq # Eq. 53
+            errv[n_sol] = self._calc_err_abc(aq, bq, cqv[n_sol], dq)
+
+            # Select value of cq (alpha2 in manuscript) which minimizes errors
+            errmin = errv[0]
+            kmin = 0
+            for k in range(1, n_sol):
+                if (errv[k] < errmin):
+                    kmin = k
+                    errmin = errv[k]
             cq = cqv[kmin]
         return aq, bq, cq, dq
     
@@ -536,6 +590,9 @@ class Alg1010Solver:
             d2_realcase = COMP
         else:
             d2_realcase = ZERO_EXACTLY # d2 is 0
+        
+        self._a2_c12 = None if d2_realcase == ZERO_EXACTLY else a2
+        self._a2_c3 = None
         # Case III: A calculation optimized for d2 ~= 0
         # If d2 is exactly 0, you absolutely have to use this
         # If d2 is approximately 0, check because this calculation might be better, might not
@@ -559,6 +616,9 @@ class Alg1010Solver:
                 d3_realcase = COMP
                 a1_c3, b1_c3, a2_c3, b2_c3 = self._find_abab_case3_comp(l1, l3, d3)
                 err1 = self._calc_err_abcd_complex(a1_c3, b1_c3, a2_c3, b2_c3)
+            
+            self._a2_c3 = a2_c3
+
             if d2_realcase == ZERO_EXACTLY or err1 < err0:
                 use_case_3 = True
                 a1 = a1_c3
@@ -581,7 +641,9 @@ class Alg1010Solver:
 
         # First refine through newton-raphson method
         a, b, c, d = self._coeffs[1:5]
-        a1, b1, a2, b2 = self._newton_raphson_abab([a, b, c, d], [a1, b1, a2, b2])
+        self._abab_real_raw = [a1, b1, a2, b2] # Store real and refined alphas and betas for this case, as diagnostics
+        self._abab_real_refined = self._newton_raphson_abab([a1, b1, a2, b2])
+        a1, b1, a2, b2 = self._abab_real_refined
 
         # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
         qroots = self._solve_quadratic(a1, b1, [None, None])
