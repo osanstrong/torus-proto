@@ -11,8 +11,8 @@ Written referencing OpenMC implementation: https://github.com/openmc-dev/openmc/
 Full license information described at end of file.
 '''
 
-from collections.abc import Iterable
 import sys
+from collections.abc import Iterable
 import mpmath
 from mpmath import mpmathify, mpf, mpc
 from mpmath import sqrt, sign, chop
@@ -309,7 +309,7 @@ class Solve1010:
         errf = mpf(0)
         for k1 in range(4):
             errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
-            
+
         for iter_i in range(8):
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
