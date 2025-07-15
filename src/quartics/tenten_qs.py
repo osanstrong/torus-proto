@@ -215,6 +215,7 @@ class Solve1010:
 
     def _calc_err_abcd_complex(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
         '''abcd should be real, aq-dq can be complex'''
+        a, b, c, d = self._coeffs[1:5]
         # Eq. 68 and 69 for complex alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
         err = abs(bq*dq) if is_zero(d) else abs((bq*dq - d) / d)
         err += abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
@@ -224,6 +225,7 @@ class Solve1010:
 
     def _calc_err_abcd(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
         '''Where all inputs are real'''
+        a, b, c, d = self._coeffs[1:5]
         # Eq. 68 and 69 for real alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
         err = abs(bq * dq) if is_zero(d) else abs((bq*dq - d) / d)
         err += abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
@@ -403,11 +405,6 @@ class Solve1010:
         A list of the (potentially complex) roots of the given equation
 
         '''
-        errv = mpmath.matrix([0,] * 3)
-        aqv = mpmath.matrix([0,] * 3)
-        cqv = mpmath.matrix([0,] * 3)
-        realcase: list[int] = [None, None]
-
 
         # Assuming they've already been normalized
         a, b, c, d = self._coeffs[1:5]
@@ -431,125 +428,162 @@ class Solve1010:
         
         d2, l2 = self._find_d2_l2(phi0, l1, l3)
         
-        # whichcase: int = 0 # Later used as an index
-        use_d2zero_case: bool = False # Isolated variable because whether we treat it this way is context-dependent
-        # aq, bq, cq, dq # Just to clarify what variables we're about to assign to
-        if d2 < 0:
-            # Case I eq. 37 through 40
-            gamma = sqrt(-d2)
-
-            aq = l1 + gamma
-            bq = l3 + gamma*l2
-            cq = l1 - gamma
-            dq = l3 - gamma*l2
-
-            if abs(dq) < abs(bq):
-                dq = d / bq
-            elif abs(dq) > abs(bq):
-                bq = d / dq
-            
-            if abs(aq) < abs(cq):
-                n_sol = 0
-                if not is_zero(dq):
-                    aqv[n_sol] = (c - bq*cq) / dq # Eq. 47
-                    errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
-                    n_sol += 1
-                if not is_zero(cq):
-                    aqv[n_sol] = (b - dq - bq) / cq # Eq. 47
-                    errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
-                    n_sol += 1
-                aqv[n_sol] = a - cq # Eq. 47
-                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
-                n_sol += 1
-
-                # Choose value of aq (alpha1 in manuscript) to minimize errors
-                errmin = errv[0]
-                kmin = 0
-                for k in range(1, n_sol):
-                    if (errv[k] < errmin):
-                        kmin = k
-                        errmin = errv[k]
-                
-                cq = cqv[kmin]
-            realcase[0] = 1
-        elif d2 > 0: 
-            # Case II eq. 53 through 56
-            gamma = sqrt(d2)
-            acx = mpc(l1 + gamma*1j)
-            bcx = mpc(l3 + gamma*l2*1j)
-            ccx = mpmath.conj(acx)
-            dcx = mpmath.conj(bcx)
-            realcase[0] = 0
-        else:
-            realcase[0] = -1 # d2 is 0
-        # Case III: d2 is 0 or approximately 0, check which solution is better
-        if realcase[0] == -1 or abs(d2) < MACHEPS * (abs(mpf(2)*b/mpf(3)) + abs(phi0) + sq(l1)):
-            d3 = d - sq(l3)
-            err0 = mpf(0)
-            if realcase[0] == 1: # I think it's possible this is a c++ typing thing and these can be condensed into one function since mpf and mpc are interchangable
-                err0 = self._calc_err_abcd(a, b, c, d, aq, bq, cq, dq)
-            elif realcase[0] == 0:
-                err0 = self._calc_err_abcd_complex(a, b, c, d, acx, bcx, ccx, dcx)
-            # aq1, bq1, cq1, dq1 # Real
-            # acx1, bcx1, ccx1, dcx1 # Complex
-            err1 = mpf(0)
-            if d3 <= 0:
-                realcase[1] = 1
-                aq1 = l1
-                bq1 = l3 + sqrt(-d3)
-                cq1 = l1
-                dq1 = l3 - sqrt(-d3)
-                if abs(dq1) < abs(bq1):
-                    dq1 = d / bq1
-                elif abs(dq1) > abs(bq1):
-                    bq1 = d / dq1
-                err1 = self._calc_err_abcd(a, b, c, d, aq1, bq1, cq1, dq1) # Eq. 68
-            else:
-                # i.e. complex
-                realcase[1] = 0
-                acx1 = l1
-                bcx1 = l3 + mpc(0 + sqrt(d3)*1j)
-                ccx1 = l1
-                dcx1 = mpmath.conj(bcx1)
-                err1 = self._calc_err_abcd_complex(a, b, c, d, acx1, bcx1, ccx1, dcx1)
-            if realcase[0] == -1 or err1 < err0:
-                # whichcase = 1 # d2 = 0
-                use_d2zero_case = True
-                if realcase[1] == 1:
-                    aq = aq1
-                    bq = bq1
-                    cq = cq1
-                    dq = dq1
-
-                else:
-                    acx = acx1
-                    bcx = bcx1
-                    ccx = ccx1
-                    dcx = dcx1
-
-        
-        
-        whichcase = 1 if use_d2zero_case else 0
-        use_real = realcase[whichcase] == 1
-
-        # a1, b1, a2, b2, use_real = self._find_alphas_betas()
+        a1, b1, a2, b2, use_real, use_d2zero_case = self._find_abab(phi0, l1, l3, d2, l2)
         # use_d2zero_case = (whichcase == 0)
         if use_real:
             # If alpha1, beta1, alpha2, and beta2 are real
-            final_roots = self._final_roots_polyn_real(aq, bq, cq, dq)
+            final_roots = self._final_roots_polyn_real(a1, b1, a2, b2)
         else:
             # Complex coefficients of p1 and p2
-            final_roots = self._final_roots_polyn_complex(acx, bcx, ccx, dcx, use_d2zero_case)
+            final_roots = self._final_roots_polyn_complex(a1, b1, a2, b2, use_d2zero_case)
 
         if rfact != mpf(1):
             for k in range(4):
                 final_roots[k] *= rfact
         return final_roots
 
-    def _find_alphas_betas() -> tuple[mpc, mpc, mpc, mpc, bool]:
+    def _find_abab_case1(self, l1, l3, d2, l2) -> tuple[mpc]:
+        '''Finds initial guess for alpha1, beta1, alpha2, and beta2, 
+        where the calculation doesn't immediately turn complex'''
+        a, b, c, d = self._coeffs[1:5]
+
+        errv = mpmath.matrix([0,] * 3)
+        aqv = mpmath.matrix([0,] * 3)
+        cqv = mpmath.matrix([0,] * 3)
+        gamma = sqrt(-d2)
+
+        aq = l1 + gamma
+        bq = l3 + gamma*l2
+        cq = l1 - gamma
+        dq = l3 - gamma*l2
+
+        if abs(dq) < abs(bq):
+            dq = d / bq
+        elif abs(dq) > abs(bq):
+            bq = d / dq
+        
+        if abs(aq) < abs(cq):
+            n_sol = 0
+            if not is_zero(dq):
+                aqv[n_sol] = (c - bq*cq) / dq # Eq. 47
+                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                n_sol += 1
+            if not is_zero(cq):
+                aqv[n_sol] = (b - dq - bq) / cq # Eq. 47
+                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                n_sol += 1
+            aqv[n_sol] = a - cq # Eq. 47
+            errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+            n_sol += 1
+
+            # Choose value of aq (alpha1 in manuscript) to minimize errors
+            errmin = errv[0]
+            kmin = 0
+            for k in range(1, n_sol):
+                if (errv[k] < errmin):
+                    kmin = k
+                    errmin = errv[k]
+            
+            cq = cqv[kmin]
+        return aq, bq, cq, dq
+    
+    def _find_abab_case2(self, l1, l3, d2, l2) -> tuple[mpc]:
+        gamma = sqrt(d2)
+        acx = mpc(l1 + gamma*1j)
+        bcx = mpc(l3 + gamma*l2*1j)
+        ccx = mpmath.conj(acx)
+        dcx = mpmath.conj(bcx)
+        return acx, bcx, ccx, dcx
+    
+    def _find_abab_case3_real(self, l1, l3, d3) -> tuple[mpc]:
+        '''Returns alpha beta pairs for case 3, if they're complex'''
+        d = self._coeffs[4]
+
+        aq1 = l1
+        bq1 = l3 + sqrt(-d3)
+        cq1 = l1
+        dq1 = l3 - sqrt(-d3)
+        if abs(dq1) < abs(bq1):
+            dq1 = d / bq1
+        elif abs(dq1) > abs(bq1):
+            bq1 = d / dq1
+        return aq1, bq1, cq1, dq1
+    
+    def _find_abab_case3_comp(self, l1, l3, d3) -> tuple[mpc]:
+        '''Returns alpha beta pairs for case 3, where complex'''
+        acx1 = l1
+        bcx1 = l3 + mpc(0 + sqrt(d3)*1j)
+        ccx1 = l1
+        dcx1 = mpmath.conj(bcx1)
+        return acx1, bcx1, ccx1, dcx1
+
+    def _find_abab(self, phi0, l1, l3, d2, l2) -> tuple[mpc, mpc, mpc, mpc, bool, bool]:
         '''Returns alpha1, beta1, alpha2, and beta2,
-        and a boolean noting whether these values are complex
-        TODO: Can this be reduced by manually checking if said values are complex?'''  
+        a boolean noting whether these values are complex,
+        and a boolean denoting which of two complex calculations to perform
+        TODO: Can this be reduced by manually checking if said values are complex?'''
+        a, b, c, d = self._coeffs[1:5] 
+
+        use_case_3 = False
+        REAL: int = 1
+        COMP: int = 0
+        ZERO_EXACTLY: int = -1
+        d2_realcase: int = None
+        d3_realcase: int = None
+
+        if d2 < 0:
+            # Case I, coeffs are real, eq. 37 through 40
+            aq, bq, cq, dq = self._find_abab_case1(l1, l3, d2, l2)
+            d2_realcase = REAL
+        elif d2 > 0: 
+            # Case II, coeffs are complex, eq. 53 through 56
+            acx, bcx, ccx, dcx = self._find_abab_case2(l1, l3, d2, l2)
+            d2_realcase = COMP
+        else:
+            d2_realcase = ZERO_EXACTLY # d2 is 0
+        # Case III: A calculation optimized for d2 ~= 0
+        # If d2 is exactly 0, you absolutely have to use this
+        # If d2 is approximately 0, check because this calculation might be better, might not
+        almost_zero = mpf(MACHEPS) * (abs(mpf(2)*b/mpf(3)) + abs(phi0) + sq(l1))
+        if d2_realcase == ZERO_EXACTLY or is_zero(d2, tolerance=almost_zero): #Separate checks because in that margin of almost zero, either one might be better
+            d3 = d - sq(l3)
+            if d2_realcase == REAL: # I think it's possible this is a c++ typing thing and these can be condensed into one function since mpf and mpc are interchangable
+                err0 = self._calc_err_abcd(aq, bq, cq, dq)
+            elif d2_realcase == COMP:
+                err0 = self._calc_err_abcd_complex(acx, bcx, ccx, dcx)
+            else: # If the case were 0, there's no meaningful error because we just kinda have to use it 
+                err0 = mpf(0)
+            
+            if d3 <= 0:
+                # Case III values are real
+                d3_realcase = REAL
+                a_c3, b_c3, c_c3, d_c3 = self._find_abab_case3_real(l1, l3, d3)
+                err1 = self._calc_err_abcd(a, b, c, d, a_c3, b_c3, c_c3, d_c3) # Eq. 68
+            else:
+                # Case III values are complex
+                d3_realcase = COMP
+                a_c3, b_c3, c_c3, d_c3 = self._find_abab_case3_comp(l1, l3, d3)
+                err1 = self._calc_err_abcd_complex(a, b, c, d, a_c3, b_c3, c_c3, d_c3)
+            if d2_realcase == ZERO_EXACTLY or err1 < err0:
+                use_case_3 = True
+                if d3_realcase == REAL:
+                    aq = a_c3
+                    bq = b_c3
+                    cq = c_c3
+                    dq = d_c3
+                else:
+                    acx = a_c3
+                    bcx = b_c3
+                    ccx = c_c3
+                    dcx = d_c3
+
+        final_roots_realcase = d3_realcase if use_case_3 else d2_realcase
+        use_real = (final_roots_realcase == REAL)
+
+        if use_real:
+            return aq, bq, cq, dq, True, use_case_3 # TODO: I wanna simplify this structure somehow
+        else:
+            return acx, bcx, ccx, dcx, False, use_case_3
 
 
     def _final_roots_polyn_real(self, aq, bq, cq, dq) -> list[mpc]:
