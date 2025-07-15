@@ -313,31 +313,31 @@ class Alg1010Solver:
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
             if is_zero(det): break
-            Jinv: list[list[mpf|mpc]] = [[None,]*4,]*4
-            Jinv = [[0,]*4,]*4
-            Jinv = mpmath.matrix(Jinv)
-            Jinv[0,0] = x02
+            J_inv: list[list[mpf|mpc]] = [[None,]*4,]*4
+            J_inv = [[0,]*4,]*4
+            J_inv = mpmath.matrix(J_inv)
+            J_inv[0,0] = x02
 
-            Jinv[0,1] = x[3] - x[1]
-            Jinv[0,2] = x[1] * x[2] - x[0] * x[3]
-            Jinv[0,3] = -x[1] * Jinv[0,1] - x[0] * Jinv[0,2]
-            Jinv[1,0] = x[0] * Jinv[0,0] + Jinv[0,1]
-            Jinv[1,1] = -x[1] * Jinv[0,0]
-            Jinv[1,2] = -x[1] * Jinv[0,1]
-            Jinv[1,3] = -x[1] * Jinv[0,2]
-            Jinv[2,0] = -Jinv[0,0]
-            Jinv[2,1] = -Jinv[0,1]
-            Jinv[2,2] = -Jinv[0,2]
-            Jinv[2,3] = Jinv[0,2] * x[2] + Jinv[0,1] * x[3]
-            Jinv[3,0] = -x[2] * Jinv[0,0] - Jinv[0,1]
-            Jinv[3,1] = Jinv[0,0] * x[3]
-            Jinv[3,2] = x[3] * Jinv[0,1]
-            Jinv[3,3] = x[3] * Jinv[0,2]
+            J_inv[0,1] = x[3] - x[1]
+            J_inv[0,2] = x[1] * x[2] - x[0] * x[3]
+            J_inv[0,3] = -x[1] * J_inv[0,1] - x[0] * J_inv[0,2]
+            J_inv[1,0] = x[0] * J_inv[0,0] + J_inv[0,1]
+            J_inv[1,1] = -x[1] * J_inv[0,0]
+            J_inv[1,2] = -x[1] * J_inv[0,1]
+            J_inv[1,3] = -x[1] * J_inv[0,2]
+            J_inv[2,0] = -J_inv[0,0]
+            J_inv[2,1] = -J_inv[0,1]
+            J_inv[2,2] = -J_inv[0,2]
+            J_inv[2,3] = J_inv[0,2] * x[2] + J_inv[0,1] * x[3]
+            J_inv[3,0] = -x[2] * J_inv[0,0] - J_inv[0,1]
+            J_inv[3,1] = J_inv[0,0] * x[3]
+            J_inv[3,2] = x[3] * J_inv[0,1]
+            J_inv[3,3] = x[3] * J_inv[0,2]
  
             dx = mpmath.matrix([0,]*4)
             for k1 in range(4):
                 for k2 in range(4):
-                    dx[k1] += Jinv[k1,k2] * fvec[k2]
+                    dx[k1] += J_inv[k1,k2] * fvec[k2]
 
             x_old = [mpmathify(xi) for xi in x]
             
