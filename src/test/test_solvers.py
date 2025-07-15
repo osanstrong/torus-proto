@@ -1,3 +1,4 @@
+import pytest
 import math
 import numpy as np
 import mpmath
@@ -60,3 +61,34 @@ def test_1010_subcubics():
         droot_big = alg1010.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic_handleinf(coeffs[0], coeffs[1])
         result_big = droot_big**3 + coeffs[0]*droot_big + coeffs[1]
         assert math.isclose(result_big, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+20))
+
+
+def test_1010_nr_abab_converges():
+    '''Ensures that the nr implementation for refining alphas and betas converges when there actually is an error'''
+    num_trials = 100
+    coeff_spread = 200
+    wrench_spread = 1.5
+
+    for i in range(num_trials):
+        coeffs = [1] + [rand for rand in glob_rng.normal(0, coeff_spread / 2, 4)]
+
+        roots_np = np.roots(coeffs)
+
+        coeffs = [mpf(c) for c in coeffs]
+        solver = alg1010.Alg1010Solver(coeffs)
+        
+        roots_tt = solver()
+
+        if not solver._used_real_abab: # NR is only used for real alphas betas
+            continue
+        
+        solver._max_nr_abab_iters = 8 # Uncap max iters
+        wrench = [mpf(rand) for rand in glob_rng.uniform(-wrench_spread, wrench_spread, 4)]
+        abab_raw = solver._abab_real_raw
+        abab_refined = solver._abab_real_refined
+        abab_wrenched = [abab_raw[i]+wrench[i] for i in range(4)]
+        abab_wrenchfined = solver._newton_raphson_abab([p for p in abab_wrenched])
+
+        with pytest.raises(AssertionError) as assertion: # Shouldn't start close
+            assert_close(abab_refined, abab_wrenched)
+        assert_close(abab_refined, abab_wrenchfined) # But should end close
