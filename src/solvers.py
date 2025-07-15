@@ -48,14 +48,9 @@ def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf
                 solver = numpyqs.NumpySolver
             case _:
                 raise ValueError(f"'{solver}' is not a known solver")
+    
     all_roots: list[mpc] = solver(coeffs)()
-    real_roots = [r.real for r in all_roots if is_real(r, tolerance=imag_threshold)]
+    
+    is_real = lambda val : chop(val, tol=imag_threshold).imag == 0
+    real_roots = [r.real for r in all_roots if is_real(r)]
     return real_roots
-
-
-def is_real(val: mpc, tolerance: mpf = None) -> bool:
-    '''
-    Returns whether the given mpc instance is real, 
-    using mpmath.chop() with the given tolerance
-    '''
-    return chop(val, tol=tolerance).imag == 0
