@@ -60,7 +60,52 @@ class Solve1010:
         The (potentially complex) roots of the given quartic equation, as mpf/mpc instances
         '''
         return self._solve_normalized_quartic()
-    
+
+    def _solve_normalized_quartic(self) -> list[mpc]:
+        '''The central solve of the algorithm, performed on self._coeffs
+
+        Returns
+        -------
+        A list of the (potentially complex) roots of the given equation
+
+        '''
+
+        # Assuming they've already been normalized
+        a, b, c, d = self._coeffs[1:5]
+
+        phi0 = self._calc_phi0(False)
+
+        # Rescale polynomial if necessary
+        rfact = mpf(1)
+        if mpmath.isnan(phi0) or mpmath.isinf(phi0):
+            rfact = QUART_RESCAL_FACT
+            a /= rfact
+            rfact2 = rfact * rfact
+            b /= rfact2
+            c /= rfact2*rfact
+            d /= rfact2*rfact2
+            self._coeffs[1:5] = a, b, c, d
+            phi0 = self._calc_phi0(True) 
+        
+        l1 = a / 2 # Eq. 16
+        l3 = b/mpf(6) + phi0/2 # Eq. 18
+        
+        d2, l2 = self._find_d2_l2(phi0, l1, l3)
+        
+        a1, b1, a2, b2, use_real, used_case3 = self._find_abab(phi0, l1, l3, d2, l2)
+
+        if use_real:
+            # If alpha1, beta1, alpha2, and beta2 are real
+            final_roots = self._final_roots_polyn_real(a1, b1, a2, b2)
+        else:
+            # Complex coefficients of p1 and p2
+            final_roots = self._final_roots_polyn_complex(a1, b1, a2, b2, used_case3)
+
+        if rfact != mpf(1):
+            for k in range(4):
+                final_roots[k] *= rfact
+        return final_roots
+
     def _solve_depressed_cubic_handleinf(self, b: mpf, c: mpf) -> mpf|mpc:
         '''Returns the dominant root of the depressed cubic x^3 + bx + c, where b & c are large
         See Section 2.2 of 1010 manuscript
@@ -206,14 +251,15 @@ class Solve1010:
                     break
         return x
     
-    def _calc_err_ldlt(self, b, c, d, d2, l1, l2, l3) -> mpf:
+    def _calc_err_ldlt(self, d2, l1, l2, l3) -> mpf:
+        b, c, d = self._coeffs[2:5]
         # Eq. 29 and 30
         err = abs(d2 + sq(l1) + 2*l3) if is_zero(b) else abs(((d2 + sq(l1) + 2*l3) - b) / b)
         err += abs(2*d2*l2 + 2*l1*l3) if is_zero(c) else abs(((2*d2*l2 + 2*l1*l3) - c) / c)
         err += abs(d2*sq(l2) + sq(l3)) if is_zero(d) else abs(((d2*sq(l2) + sq(l3)) - d) / d)
         return err
 
-    def _calc_err_abcd_complex(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
+    def _calc_err_abcd_complex(self, aq, bq, cq, dq) -> mpf:
         '''abcd should be real, aq-dq can be complex'''
         a, b, c, d = self._coeffs[1:5]
         # Eq. 68 and 69 for complex alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
@@ -223,7 +269,7 @@ class Solve1010:
         err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
 
-    def _calc_err_abcd(self, a, b, c, d, aq, bq, cq, dq) -> mpf:
+    def _calc_err_abcd(self, aq, bq, cq, dq) -> mpf:
         '''Where all inputs are real'''
         a, b, c, d = self._coeffs[1:5]
         # Eq. 68 and 69 for real alpha1 (aq), beta1 (aq), alpha2 (cq) and beta2 (d1)
@@ -233,7 +279,8 @@ class Solve1010:
         err += abs(aq + cq) if is_zero(a) else abs(((aq + cq) - a) / a)
         return err
 
-    def _calc_err_abc(self, a: mpf, b, c, aq: mpf, bq, cq, dq) -> mpf:
+    def _calc_err_abc(self, aq: mpf, bq, cq, dq) -> mpf:
+        a, b, c = self._coeffs[1:4]
         # Eq. 48 through 51 
         err = abs(bq*cq + aq*dq) if is_zero(c) else abs(((bq*cq + aq*dq) - c) / c)
         err += abs(bq + aq*cq + dq) if is_zero(b) else abs(((bq + aq*cq + dq) - b) / b)
@@ -262,8 +309,7 @@ class Solve1010:
         errf = mpf(0)
         for k1 in range(4):
             errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
-
-
+            
         for iter_i in range(8):
             x02 = x[0] - x[2]
             det = x[1]*x[1] + x[1]*(-x[2]*x02 - mpf(2)*x[3]) + x[3]*(x[0]*x02 + x[3])
@@ -288,9 +334,7 @@ class Solve1010:
             Jinv[3,1] = Jinv[0,0] * x[3]
             Jinv[3,2] = x[3] * Jinv[0,1]
             Jinv[3,3] = x[3] * Jinv[0,2]
-
-
-            
+ 
             dx = mpmath.matrix([0,]*4)
             for k1 in range(4):
                 for k2 in range(4):
@@ -309,14 +353,12 @@ class Solve1010:
             errf_old = errf
             errf = mpf(0)
             for k1 in range(4):
-
                 errf += abs(fvec[k1]) if is_zero(vr[k1]) else abs(fvec[k1]/vr[k1])
 
             if is_zero(errf):
                 break
 
             if errf >= errf_old:
-
                 for k1 in range(4):
                     x[k1] = x_old[k1]
                 break
@@ -364,19 +406,19 @@ class Solve1010:
         if (not is_zero(bl311)):
             d2m[n_sol] = bl311
             l2m[n_sol] = del2 / (2*d2m[n_sol])
-            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
+            res[n_sol] = self._calc_err_ldlt(d2m[n_sol], l1, l2m[n_sol], l3)
             n_sol += 1
 
         if (not is_zero(del2)):
             l2m[n_sol] = mpf(2) * dml3l3 / del2
             if not is_zero(l2m[n_sol]):
                 d2m[n_sol] = del2 / (mpf(2)*l2m[n_sol])
-                res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
+                res[n_sol] = self._calc_err_ldlt(d2m[n_sol], l1, l2m[n_sol], l3)
                 n_sol += 1
             
             d2m[n_sol] = bl311
             l2m[n_sol] = mpf(2) * dml3l3 / del2
-            res[n_sol] = self._calc_err_ldlt(b, c, d, d2m[n_sol], l1, l2m[n_sol], l3)
+            res[n_sol] = self._calc_err_ldlt(d2m[n_sol], l1, l2m[n_sol], l3)
             n_sol += 1
         
         # Pick just one l2 and d2 pair
@@ -395,52 +437,6 @@ class Solve1010:
             l2 = l2m[kmin]
 
         return d2, l2
-
-
-    def _solve_normalized_quartic(self) -> list[mpc]:
-        '''The central solve of the algorithm, performed on self._coeffs
-
-        Returns
-        -------
-        A list of the (potentially complex) roots of the given equation
-
-        '''
-
-        # Assuming they've already been normalized
-        a, b, c, d = self._coeffs[1:5]
-
-        phi0 = self._calc_phi0(False)
-
-        # Rescale polynomial if necessary
-        rfact = mpf(1)
-        if mpmath.isnan(phi0) or mpmath.isinf(phi0):
-            rfact = QUART_RESCAL_FACT
-            a /= rfact
-            rfact2 = rfact * rfact
-            b /= rfact2
-            c /= rfact2*rfact
-            d /= rfact2*rfact2
-            self._coeffs[1:5] = a, b, c, d
-            phi0 = self._calc_phi0(True) 
-        
-        l1 = a / 2 # Eq. 16
-        l3 = b/mpf(6) + phi0/2 # Eq. 18
-        
-        d2, l2 = self._find_d2_l2(phi0, l1, l3)
-        
-        a1, b1, a2, b2, use_real, use_d2zero_case = self._find_abab(phi0, l1, l3, d2, l2)
-        # use_d2zero_case = (whichcase == 0)
-        if use_real:
-            # If alpha1, beta1, alpha2, and beta2 are real
-            final_roots = self._final_roots_polyn_real(a1, b1, a2, b2)
-        else:
-            # Complex coefficients of p1 and p2
-            final_roots = self._final_roots_polyn_complex(a1, b1, a2, b2, use_d2zero_case)
-
-        if rfact != mpf(1):
-            for k in range(4):
-                final_roots[k] *= rfact
-        return final_roots
 
     def _find_abab_case1(self, l1, l3, d2, l2) -> tuple[mpc]:
         '''Finds initial guess for alpha1, beta1, alpha2, and beta2, 
@@ -466,14 +462,14 @@ class Solve1010:
             n_sol = 0
             if not is_zero(dq):
                 aqv[n_sol] = (c - bq*cq) / dq # Eq. 47
-                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                errv[n_sol] = self._calc_err_abc(aqv[n_sol], bq, cq, dq)
                 n_sol += 1
             if not is_zero(cq):
                 aqv[n_sol] = (b - dq - bq) / cq # Eq. 47
-                errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+                errv[n_sol] = self._calc_err_abc(aqv[n_sol], bq, cq, dq)
                 n_sol += 1
             aqv[n_sol] = a - cq # Eq. 47
-            errv[n_sol] = self._calc_err_abc(a, b, c, aqv[n_sol], bq, cq, dq)
+            errv[n_sol] = self._calc_err_abc(aqv[n_sol], bq, cq, dq)
             n_sol += 1
 
             # Choose value of aq (alpha1 in manuscript) to minimize errors
@@ -558,12 +554,12 @@ class Solve1010:
                 # Case III values are real
                 d3_realcase = REAL
                 a1_c3, b1_c3, a2_c3, b2_c3 = self._find_abab_case3_real(l1, l3, d3)
-                err1 = self._calc_err_abcd(a, b, c, d, a1_c3, b1_c3, a2_c3, b2_c3) # Eq. 68
+                err1 = self._calc_err_abcd(a1_c3, b1_c3, a2_c3, b2_c3) # Eq. 68
             else:
                 # Case III values are complex
                 d3_realcase = COMP
                 a1_c3, b1_c3, a2_c3, b2_c3 = self._find_abab_case3_comp(l1, l3, d3)
-                err1 = self._calc_err_abcd_complex(a, b, c, d, a1_c3, b1_c3, a2_c3, b2_c3)
+                err1 = self._calc_err_abcd_complex(a1_c3, b1_c3, a2_c3, b2_c3)
             if d2_realcase == ZERO_EXACTLY or err1 < err0:
                 use_case_3 = True
                 a1 = a1_c3
