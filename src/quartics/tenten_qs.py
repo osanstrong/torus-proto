@@ -27,7 +27,7 @@ QUART_RESCAL_FACT = 7.156344627944542e+76 # Equivalent to: pow(MAX_DOUBLE, 0.25)
 MACHEPS = sys.float_info.epsilon
 
 
-class Solve1010:
+class Alg1010Solver:
     def __init__(self, coeffs: list[MpfAble]):
         '''
         Solves the given quartic polynomial using Algorithm 1010

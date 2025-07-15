@@ -53,7 +53,7 @@ def calc_real_roots_ferrari_highp(coeffs: Iterable[mpf],
     for coeff in coeffs:
         assert type(coeff) == mpf
 
-    cmp_roots = ferrari.SolveFerrari(coeffs)()
+    cmp_roots = ferrari.FerrariSolver(coeffs)()
     real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
     return real_roots
 
@@ -82,7 +82,7 @@ def calc_real_roots_1010(coeffs: Iterable[mpf],
     for coeff in coeffs:
         assert isinstance(coeff, mpf)
     
-    cmp_roots = tenten.Solve1010(coeffs)()
+    cmp_roots = tenten.Alg1010Solver(coeffs)()
     real_roots = [root.real for root in cmp_roots if mpmath.fabs(root.imag) < imag_threshold]
     return real_roots
     

@@ -53,11 +53,11 @@ def test_1010_subcubics():
 
         coeffs = [mpf(c) for c in coeffs]
 
-        droot = tenten_qs.Solve1010([1,1,1,1,1])._solve_depressed_cubic(coeffs[0], coeffs[1])
+        droot = tenten_qs.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic(coeffs[0], coeffs[1])
         result = droot**3 + coeffs[0]*droot + coeffs[1]
         assert math.isclose(result, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+20))
 
-        droot_big = tenten_qs.Solve1010([1,1,1,1,1])._solve_depressed_cubic_handleinf(coeffs[0], coeffs[1])
+        droot_big = tenten_qs.Alg1010Solver([1,1,1,1,1])._solve_depressed_cubic_handleinf(coeffs[0], coeffs[1])
         result_big = droot_big**3 + coeffs[0]*droot_big + coeffs[1]
         assert math.isclose(result_big, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec+20))
 

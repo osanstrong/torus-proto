@@ -19,7 +19,7 @@ from math import isclose
 MpfAble: type = float|int|str|mpf
 
 
-class SolveFerrari:
+class FerrariSolver:
     def __init__(self, coeffs: Iterable[MpfAble]):
         '''
         Solves the given quartic equation using the Ferrari-Cardano algorithm.
