@@ -46,6 +46,8 @@ def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf
                 solver = ferrari.FerrariSolver
             case "np" | "numpy":
                 solver = numpyqs.NumpySolver
+            case _:
+                raise ValueError(f"'{solver}' is not a known solver")
     all_roots: list[mpc] = solver(coeffs)()
     real_roots = [r.real for r in all_roots if is_real(r, tolerance=imag_threshold)]
     return real_roots
