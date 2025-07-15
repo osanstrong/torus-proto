@@ -4,7 +4,7 @@ import mpmath
 from mpmath import mpf, mpc
 from src import solvers
 from src.quartics import tenten_qs
-from src.test.test_toroid import assert_close, mpfl
+from src.test.test_toroid import assert_close
 
 glob_rand_seed = 1999
 glob_rng = np.random.default_rng(seed=glob_rand_seed)
@@ -27,9 +27,9 @@ def test_rootfinders_random():
         coeffs = glob_rng.normal(0, spread / 2, 4)
         coeffs = [mpf(1)] + [mpf(n) for n in coeffs]
 
-        roots_np = solvers.calc_real_roots_numpy(coeffs)
-        roots_fr_hp = solvers.calc_real_roots_ferrari_highp(coeffs)
-        roots_tt = solvers.calc_real_roots_1010(coeffs)
+        roots_np = solvers.calc_real_roots(coeffs, "np")
+        roots_fr_hp = solvers.calc_real_roots(coeffs, "fr")
+        roots_tt = solvers.calc_real_roots(coeffs, "tt")
 
         # Remember this test isn't checking for precision, just that the math checks out
         roots_np = [float(r) for r in sorted(roots_np)]

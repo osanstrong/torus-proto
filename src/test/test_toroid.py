@@ -1,20 +1,15 @@
 # A script to run test cases of toroid-ray.py
 
 from collections.abc import Iterable
-import math
 from math import isclose
 import numpy as np
 from numpy.linalg import norm
 import pytest
-import src.toroid
 from src.toroid import EllipticToroid, MpfAble
 from src.toroid import l2norm2
 from src.quartics.tenten_qs import Alg1010Solver
 from src.quartics.ferrari_qs import FerrariSolver
 from src.quartics.numpy_qs import NumpySolver
-# import src.solvers
-# from src.solvers import FerrariSolver
-# from src.solvers import Alg1010Solver
 import mpmath
 from mpmath import mpf
 
