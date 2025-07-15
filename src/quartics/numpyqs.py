@@ -21,7 +21,7 @@ class NumpySolver:
         coeffs : Iterable[MpfAble], length 5
             The coefficients of the quartic polynomial to solve, c[0]x^4 + c[1]x^3 + c[2]x^3 + c[3]x + c[4]
         '''
-        if not all_instances(coeffs, MpfAble):
+        if not all(isinstance(cf, MpfAble) for cf in coeffs):
             raise ValueError("All coefficients must be either mpf instances, or float, int, str which can be converted thereinto")
         if not len(coeffs) == 5:
             raise ValueError("The quartic equation must be represented using 5 coefficients.")
@@ -40,8 +40,3 @@ class NumpySolver:
         These will not preserve arbitrary precision
         '''
         return [mpc(r) for r in np.roots(self._coeffs)]
-
-
-def all_instances(vals: Iterable, of_type: type) -> bool:
-    '''Returns whether all the given values are mpf instances (excluding mpc)'''
-    return all(isinstance(val, of_type) for val in vals)
