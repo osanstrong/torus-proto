@@ -213,13 +213,12 @@ class Alg1010Solver:
                 # Rescale again
                 rfact = CUBIC_RESCAL_FACT
                 rfact2 = sq(rfact)
-                dqss = sq / rfact2
+                dqss = dq / rfact2
                 aqs = aq / rfact
                 bqs = bq / rfact
                 cqs = cq / rfact
                 ggss = sq(bqs) / mpf(9) # aka gg / rfact2
                 hhss = aqs * cqs # aka hh / rfact2
-                # TODO: do we need to get rid of any sq() instances here to preserve intended order of operations for precision?
                 g = hhss - 4*dqss - 3*ggss
                 h = (8*dqss + hhss - 2*ggss)*bqs/mpf(3) - cqs*(cqs/rfact) - (dq/rfact)*sq(aqs)
                 rmax = self._solve_depressed_cubic(g, h)
@@ -432,7 +431,6 @@ class Alg1010Solver:
         dml3l3 = d - sq(l3) # d3 as defined in Eq. 15 with d2 = 0
 
 
-        # TODO: This section seems like it might need some revision for when to chop, with what precision, etc
         # 3 possible solutions for d2 and l2 (Eq. 28 and folowing discussion)
         if (not is_zero(bl311)):
             d2m[n_sol] = bl311
@@ -570,7 +568,7 @@ class Alg1010Solver:
         '''Returns alpha1, beta1, alpha2, and beta2,
         a boolean noting whether these values are complex,
         and a boolean denoting which of two complex calculations to perform
-        TODO: Can this be reduced by manually checking if said values are complex?'''
+        '''
         a, b, c, d = self._coeffs[1:5] 
 
         use_case_3 = False
@@ -630,7 +628,7 @@ class Alg1010Solver:
         use_real = (final_roots_realcase == REAL)
 
         if use_real:
-            return a1, b1, a2, b2, True, use_case_3 # TODO: I wanna simplify this structure somehow
+            return a1, b1, a2, b2, True, use_case_3
         else:
             return a1, b1, a2, b2, False, use_case_3
 
