@@ -2,7 +2,7 @@
 A script to compare and plot results of different solvers
 '''
 import matplotlib.pyplot as plt
-from mpmath import mpf, mp, pi
+from mpmath import mpf, mp, pi, power
 from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 
@@ -25,7 +25,7 @@ MpfAble: type = mpf|float|str
 
 # 1: Compare intersection point at different distances for different solvers
 def compare_distances(
-    dists: list[MpfAble] = ["0.00001", "0.01", 1, 10, 100, 1000]+[10**i for i in range(4, 16)],
+    dists: list[MpfAble] = [power(10, i) for i in range(-16, 12)],
     prec: int = DOUBLE_PREC
 ) -> dict:
     dists = [mpf(d) for d in dists]

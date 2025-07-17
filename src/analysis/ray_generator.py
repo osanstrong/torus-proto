@@ -87,6 +87,7 @@ def get_grazing_ray(
     -------
     (ray_src, ray_dir) : tuple[matrix, matrix]
         The source and direction of the ray.
+        Picks the direction such that ray points toward the z axis. 
     '''
     # Find point from uv
     ray_src = point_on_toroid(toroid, u, v)
