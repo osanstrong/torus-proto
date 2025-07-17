@@ -36,8 +36,8 @@ def get_normal_ray(
     dist: mpf,
 ) -> tuple[matrix, matrix]:
     '''
-    Takes a point on a torus, a direction (defaults to towards the origin), and produces a 
-    list of points shifted backwards along the given direction by the given distances
+    Takes a point on a torus, a direction (defaults to towards the origin), and produces a ray
+    towards it whose source is shifted backwards along the given direction by the given distances
 
     Parameters
     ----------
