@@ -25,14 +25,10 @@ HIGH_PREC: int = 999
 
 
 # ------------------------------------------------------------
-# Utility functions to generate rays which might be edge cases
+# Utility functions to generate notable kinds of rays
 # ------------------------------------------------------------
 
 
-# TODO: Could these all be thought of more as a class?
-# RayGenerator for a given torus
-# function get_normal_ray(u, v, d)
-# Rename class to ray_generator possibly
 def get_normal_ray(
     toroid: EllipticToroid,
     u: mpf,
