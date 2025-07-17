@@ -9,7 +9,7 @@ Compare:
 from collections.abc import Iterable, Callable
 import numpy as np
 import mpmath
-from mpmath import mpf, mpc, matrix, cos, sin
+from mpmath import mpf, mpc, matrix, cos, sin, sqrt, sign
 import toroid
 
 # ---------
@@ -33,39 +33,28 @@ HIGH_PREC: int = 999
 # RayGenerator for a given torus
 # function get_normal_ray(u, v, d)
 # Rename class to ray_generator possibly
-def origins_for_arriving_ray(
+def get_normal_ray(
     toroid: toriod.EllipticToroid,
     u: mpf,
     v: mpf,
-    ray_dir: matrix,
-    distances: list[mpf],
-) -> list[matrix]:
+    dist: mpf,
+) -> tuple[matrix, matrix]:
     '''
     Takes a point on a torus, a direction (defaults to towards the origin), and produces a 
     list of points shifted backwards along the given direction by the given distances
-    '''
-    start = point_on_toroid(toroid, u, v)
-    return [start - dist*ray_dir for dist in distances]
-
-
-def epsilon_shifts(
-    shift_dir: matrix,
-    n: int|list[int] = 6,
-) -> list[matrix]:
-    '''
-    Produces a list of vectors in the given direction, logarithmically spaced (base 10)
 
     Parameters
     ----------
-    shift_dir : matrix (3x1)
-        The direction the shifts should face. The smallest vectors might not quite match direction
-    n : int | list[int]
-        The powers of 10 to scale epsilon by. Must be positive. If an int is given, ranges from 0-n
+    toroid : EllipticToroid
+        The toroidal surface to generate the ray for
+    u, v : mpf
+        The coordinates on the toroidal surface for the ray to aim at
+    dist : mpf
+        How far back the ray should start; negative distance means it starts after the surface
     '''
-    eps = mpmath.mp.eps
-    if isinstance(n, int):
-        n = [i for i in range(n)]
-    return [shift_dir * (eps*pow(10, ni)) for ni in n]
+    start = point_on_toroid(toroid, u, v)
+    ray_dir = matrix(toroid.surface_normal(start))
+    return start - dist*ray_dir, ray_dir
 
 
 def calc_grazing_ray(
@@ -74,7 +63,7 @@ def calc_grazing_ray(
     v: mpf = 0,
     yaw: mpf = None,
     distance: mpf = None,
-    epsilon: mpf = None,
+    pos_epsilon: mpf = None,
 ) -> tuple[matrix, matrix]:
     '''
     Calculates a ray of ray_src and ray_dir which grazes the given toroid at a specified location.
@@ -94,7 +83,7 @@ def calc_grazing_ray(
         How far backwards to shift the ray origin from the surface point. I.e., for a distance 5,
         then ray_src + distance*ray_dir approaches the surface.
         If None, leaves ray origin at exactly the surface point.
-    epsilon : mpf, default None
+    pos_epsilon : mpf, default None
         How far away from the surface to shift the grazing ray. Negative values go into the toroid.
         If None, leaves ray exactly grazing the surface
     
@@ -104,34 +93,61 @@ def calc_grazing_ray(
         The source and direction of the ray.
     '''
     # Find point from uv
-    ray_src = matrix([
-
-    ])
+    ray_src = point_on_toroid(toroid, u, v)
     # Find normal of that point
+    srf_nor = toroid.surface_normal(ray_src)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
+    x, y, z = srf_nor
+    r = sqrt(sq(x) + sq(y)) * -sign(cos(v)) # If the vector is on 'hole' of donut, r is negative
+    zr = z/r
+    graze_dir = matrix([x*zr, y*zr, -r]) 
+    if sin(v) > 0: # If the vector is on 'topside', flip so that the ray is always approaching the z axis
+        graze_dir *= 1
     # If required, rotate that vector by yaw
     # Find a point along the ray such that traveling distance from that point along the way arrives at the point
+    ray_src -= distance*graze
     # Shift in position along epsilon
-    pass
+    ray_src += pos_epsilon*matrix(srf_nor)
+    return ray_src, graze_dir
+
 
 def calc_donut_hole_ray(
     toroid: toroid.EllipticToroid,
-    u: mpf = 0,
-    distance: mpf = 1,
-    start_at_origin: bool = False
+    u: mpf,
+    distance: mpf,
+    ang_epsilon: mpf = None
 ) -> tuple[matrix, matrix]:
     '''
     Finds a "donut hole ray", a special case of calc_grazing_ray() which goes through the origin.
     This also means that it scrapes the toroid's inside in the opposite direction.
+    Starts at origin instead of at the surface point.
+
+    Parameters
+    ----------
+    toroid : EllipticToroid
+        The toroidal surface to find the donut hole ray for
+    u : mpf
+        The 'theta' position on the toroidal surface. There's only one pair of vs that produce
+        this donut hole ray.
+    distance : mpf
+        How far back to position the ray from the origin
+    ang_epsilon : mpf, default None
+        If specified, rotate the ray by this much about the origin, in radians
     '''
     r = toroid.tor_rad
     a = toroid.hor_rad
     v = mpmath.pi - mpmath.acos(a / r)
     surf_point, ray_dir = calc_grazing_ray(toroid, u = u, v = v)
-    if start_at_origin:
-        ray_src = 0 - distance*ray_dir
-    else:
-        ray_src = surf_point - distance*ray_dir
+    if not ang_epsilon is None:
+        dx, dy, dz = ray_dir
+        dr = sqrt(sq(dx) + sq(sy))
+        zr = dz/dr
+        ray_dir = matrix([
+            dx * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
+            dy * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
+            dz*cos(ang_epsilon) + dr*sin(ang_epsilon)
+        ])
+    ray_src = 0 - distance*ray_dir
     return ray_src, ray_dir
 
 
@@ -192,3 +208,23 @@ def point_on_toroid(toroid: toroid.EllipticToroid, u: mpf, v: mpf) -> matrix:
        sin(u) * (r + a*cos(v)),
        b * sin(v)
     ])
+
+
+def epsilon_shifts(
+    shift_dir: matrix,
+    n: int|list[int] = 6,
+) -> list[matrix]:
+    '''
+    Produces a list of vectors in the given direction, logarithmically spaced (base 10)
+
+    Parameters
+    ----------
+    shift_dir : matrix (3x1)
+        The direction the shifts should face. The smallest vectors might not quite match direction
+    n : int | list[int]
+        The powers of 10 to scale epsilon by. Must be positive. If an int is given, ranges from 0-n
+    '''
+    eps = mpmath.mp.eps
+    if isinstance(n, int):
+        n = [i for i in range(n)]
+    return [shift_dir * (eps*pow(10, ni)) for ni in n]
