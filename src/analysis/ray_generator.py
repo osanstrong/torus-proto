@@ -9,8 +9,8 @@ Compare:
 from collections.abc import Iterable, Callable
 import numpy as np
 import mpmath
-from mpmath import mpf, mpc, matrix, cos, sin, sqrt, sign
-import toroid
+from mpmath import mpf, mpc, matrix, cos, sin, sqrt, sign, norm
+from src.toroid import EllipticToroid, sq
 
 # ---------
 # Constants
@@ -34,7 +34,7 @@ HIGH_PREC: int = 999
 # function get_normal_ray(u, v, d)
 # Rename class to ray_generator possibly
 def get_normal_ray(
-    toroid: toriod.EllipticToroid,
+    toroid: EllipticToroid,
     u: mpf,
     v: mpf,
     dist: mpf,
@@ -53,12 +53,12 @@ def get_normal_ray(
         How far back the ray should start; negative distance means it starts after the surface
     '''
     start = point_on_toroid(toroid, u, v)
-    ray_dir = matrix(toroid.surface_normal(start))
+    ray_dir = -toroid.surface_normal(start)
     return start - dist*ray_dir, ray_dir
 
 
-def calc_grazing_ray(
-    toroid: toroid.EllipticToroid,
+def get_grazing_ray(
+    toroid: EllipticToroid,
     u: mpf = 0,
     v: mpf = 0,
     yaw: mpf = None,
@@ -96,23 +96,27 @@ def calc_grazing_ray(
     ray_src = point_on_toroid(toroid, u, v)
     # Find normal of that point
     srf_nor = toroid.surface_normal(ray_src)
+    nor_mag = norm(srf_nor, 2)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
     x, y, z = srf_nor
     r = sqrt(sq(x) + sq(y)) * -sign(cos(v)) # If the vector is on 'hole' of donut, r is negative
     zr = z/r
-    graze_dir = matrix([x*zr, y*zr, -r]) 
+    graze_dir = matrix([x*zr, y*zr, -r])
+    graze_mag = norm(graze_dir, 2)
     if sin(v) > 0: # If the vector is on 'topside', flip so that the ray is always approaching the z axis
         graze_dir *= 1
     # If required, rotate that vector by yaw
     # Find a point along the ray such that traveling distance from that point along the way arrives at the point
-    ray_src -= distance*graze
+    if not distance is None:
+        ray_src -= distance*graze_dir
     # Shift in position along epsilon
-    ray_src += pos_epsilon*matrix(srf_nor)
+    if not pos_epsilon is None:
+        ray_src += pos_epsilon*matrix(srf_nor)
     return ray_src, graze_dir
 
 
-def calc_donut_hole_ray(
-    toroid: toroid.EllipticToroid,
+def get_donut_hole_ray(
+    toroid: EllipticToroid,
     u: mpf,
     distance: mpf,
     ang_epsilon: mpf = None
@@ -137,17 +141,22 @@ def calc_donut_hole_ray(
     r = toroid.tor_rad
     a = toroid.hor_rad
     v = mpmath.pi - mpmath.acos(a / r)
-    surf_point, ray_dir = calc_grazing_ray(toroid, u = u, v = v)
+    surf_point, ray_dir = get_grazing_ray(toroid, u = u, v = v)
+    mag0 = norm(ray_dir, 2)
+    prev = mpmath.mp.prec
+    mpmath.mp.prec = 999
     if not ang_epsilon is None:
         dx, dy, dz = ray_dir
-        dr = sqrt(sq(dx) + sq(sy))
+        dr = sqrt(sq(dx) + sq(dy))
         zr = dz/dr
         ray_dir = matrix([
             dx * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
             dy * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
-            dz*cos(ang_epsilon) + dr*sin(ang_epsilon)
+            dz*cos(ang_epsilon) - dr*sin(ang_epsilon)
         ])
+    mpmath.mp.prec = prev
     ray_src = 0 - distance*ray_dir
+    mag = norm(ray_dir, 2)
     return ray_src, ray_dir
 
 
@@ -157,7 +166,7 @@ def calc_donut_hole_ray(
 
 
 def intersections_by_solver(
-    toroid: toroid.EllipticToroid,
+    toroid: EllipticToroid,
     ray_src: Iterable[mpf], 
     ray_dir: Iterable[mpf],
     solvers: list[type|str] = ["Ferrari", "Alg1010"],
@@ -196,7 +205,7 @@ def points_along_ray(
     return [ray_src + dist*ray_dir for dist in distances]
 
 
-def point_on_toroid(toroid: toroid.EllipticToroid, u: mpf, v: mpf) -> matrix:
+def point_on_toroid(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
     '''
     Shorthand to find a point on the given torus using parameterized surface coordinates u & v
     '''
@@ -208,6 +217,13 @@ def point_on_toroid(toroid: toroid.EllipticToroid, u: mpf, v: mpf) -> matrix:
        sin(u) * (r + a*cos(v)),
        b * sin(v)
     ])
+
+
+def uv_norm(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
+    '''
+    Shorthand for the normal vector to the toroid at a given u, v
+    '''
+    return matrix(toroid.surface_normal(point_on_toroid(toroid, u, v)))
 
 
 def epsilon_shifts(
