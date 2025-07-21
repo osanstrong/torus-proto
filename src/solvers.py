@@ -39,18 +39,23 @@ def calc_real_roots(coeffs: Iterable[mpf], solver: type|str, imag_threshold: mpf
     assert isinstance(solver, type|str)
     # If a string is given, find which solver they meant
     if isinstance(solver, str):
-        match solver:
-            case "tt" | "Alg1010":
-                solver = alg1010.Alg1010Solver
-            case "fr" | "Ferrari":
-                solver = ferrari.FerrariSolver
-            case "np" | "numpy":
-                solver = numpyqs.NumpySolver
-            case _:
-                raise ValueError(f"'{solver}' is not a known solver")
+        solver = get_solver(solver)
     
     all_roots: list[mpc] = solver(coeffs)()
     
     is_real = lambda val : chop(val, tol=imag_threshold).imag == 0
     real_roots = [r.real for r in all_roots if is_real(r)]
     return real_roots
+
+
+def get_solver(name: str):
+    match name:
+        case "tt" | "Alg1010":
+            solver = alg1010.Alg1010Solver
+        case "fr" | "Ferrari":
+            solver = ferrari.FerrariSolver
+        case "np" | "numpy":
+            solver = numpyqs.NumpySolver
+        case _:
+            raise ValueError(f"'{solver}' is not a known solver")
+    return solver
