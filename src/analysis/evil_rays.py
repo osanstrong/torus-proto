@@ -36,6 +36,7 @@ def compare_distances(
     prec: int = DOUBLE_PREC,
     u: mpf = 0, v: mpf = pi / 2,
     return_dtb: bool = False,
+    return_logs: bool = False,
 ) -> dict:
     dists = [mpf(d) for d in dists]
     mp.prec = HIGH_PREC
@@ -74,11 +75,14 @@ def compare_distances(
         for i in range(len(sources)):
             ray_src = sources[i]
             polynom = polynoms[i]
-            log = []
-            sys.settrace(get_tracer_to_list(log))
+            # log = []
+            # sys.settrace(get_tracer_to_list(log))
+            tracer = AlgTracer(solv)
+            tracer.begin()
             dtb = tor.distance_to_boundary(ray_src, ray_dir, solv)
-            sys.settrace(None)
-            logs.append(log)
+            tracer.end()
+            logs.append(tracer.simple_logstring())
+            # logs.append(tracer.everything())
             if dtb is None:
                 results.append(None)
                 continue
@@ -104,42 +108,79 @@ def print_as_db(d: dict):
     print(to_db(d))
 
 
-
-
-def get_tracer_to_list(l: list):
-    '''Returns a new tracer instance, which logs certain key details to the given list.
-    
-    Logs 
+class AlgTracer():
     '''
-    def tracer(frame, event, arg = None):
+    A class for tracing, such that an instance can be passed to sys.settrace().
+
+    Usage:
+    tracer = AlgTracer(namespace)
+    tracer.begin()
+    foo.bar()
+    tracer.end()
+    print(tracer.simple_logstring)
+    '''
+
+    def __init__(self, namespace):
+        '''
+        Parameters
+        ----------
+        namespace : something you can call dir() on
+            The namespace of functions to trace. For instance, if the class
+            Alg1010Solver were given, it would only trace functions defined
+            there, such as _solve_normalized_quartic() or _calc_err_ldlt().
+        '''
+        self.namespace = namespace
+        pass
+
+    def begin(self):
+        self._logs: list = []
+        self._indent: int = 0
+        sys.settrace(self)
+
+    def end(self):
+        sys.settrace(None)
+
+    def __call__(self, frame, event, arg = None):
+        if not event in ["call", "return"]:
+            return self
         code = frame.f_code
         func_name = code.co_name
         line_no = frame.f_lineno
-
-        log = f"{line_no}:{func_name}:{event}"
-        
+        if not func_name in dir(self.namespace):
+            return self
         if func_name.startswith("__"):
-            return tracer
-        # if any([
-        #     func_name.startswith("__"),
-        #     func_name.startswith("gmpy"),
-        #     func_name.startswith("mpf"),
-        #     func_name in ["<genexpr>", "from_int", "to_float", "sq", 
-        #     "l2norm2", "from_float", "convert", "make_mpf", "nthroot_fixed",
-        #     "_mpf_", "to_mpfs", ""]
-        # ]):
-        #     return tracer
-        #     l.append(log)
-        if event == "return" and func_name in dir(alg1010.Alg1010Solver):
-            locs = frame.f_locals
-            locsstr = f":{locs}"
-            log = log + locsstr + f":{arg}"
+            return self
 
-            log = {
-                "event":f"{line_no}:{func_name}:{event}",
-                "locals":locs,
-                "returned":arg
+        if event == "call":
+            params = []
+            for i in range(code.co_argcount):
+                name = code.co_varnames[i]
+                val = frame.f_locals[name]
+                params.append(f"{name}:{val}")
+            content = {
+                "params": params
             }
-            l.append(log)
-        return tracer
-    return tracer
+        else:
+            self._indent -= 1
+            content = {
+                "locals": frame.f_locals,
+                "returned": arg
+            }
+        self._logs.append({
+            "event": event,
+            "name": func_name,
+            "indent": self._indent,
+            "content": content
+        })
+        if event == "call":
+            self._indent += 1
+        return self
+
+    def simple_logstring(self, indent: str = "  "):
+        return "\n".join([
+            indent*e["indent"] + \
+                (f"{e["name"]}({", ".join(e["content"]["params"][1:])})" if e["event"] == "call" \
+            else f"-> {e["content"]["returned"]}") \
+            for e in self._logs
+        ])
+        
