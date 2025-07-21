@@ -3,12 +3,14 @@ A script to compare and plot results of different solvers
 '''
 
 import sys
+from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
 import pandas as pd
 from mpmath import mpf, mp, pi, power
 from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
+import src.quartics.alg1010 as alg1010
 
 
 # ----------------
@@ -101,22 +103,43 @@ def to_db(d: dict) -> pd.DataFrame:
 def print_as_db(d: dict):
     print(to_db(d))
 
+
+
+
 def get_tracer_to_list(l: list):
+    '''Returns a new tracer instance, which logs certain key details to the given list.
+    
+    Logs 
+    '''
     def tracer(frame, event, arg = None):
         code = frame.f_code
         func_name = code.co_name
         line_no = frame.f_lineno
 
         log = f"{line_no}:{func_name}:{event}"
+        
+        if func_name.startswith("__"):
+            return tracer
+        # if any([
+        #     func_name.startswith("__"),
+        #     func_name.startswith("gmpy"),
+        #     func_name.startswith("mpf"),
+        #     func_name in ["<genexpr>", "from_int", "to_float", "sq", 
+        #     "l2norm2", "from_float", "convert", "make_mpf", "nthroot_fixed",
+        #     "_mpf_", "to_mpfs", ""]
+        # ]):
+        #     return tracer
+        #     l.append(log)
+        if event == "return" and func_name in dir(alg1010.Alg1010Solver):
+            locs = frame.f_locals
+            locsstr = f":{locs}"
+            log = log + locsstr + f":{arg}"
 
-        if not any([
-            func_name.startswith("__"),
-            func_name.startswith("gmpy"),
-            func_name.startswith("mpf"),
-            func_name in ["<genexpr>", "from_int", "to_float", "sq", 
-            "l2norm2", "from_float", "convert", "make_mpf", "nthroot_fixed",
-            "_mpf_"]
-        ]):
+            log = {
+                "event":f"{line_no}:{func_name}:{event}",
+                "locals":locs,
+                "returned":arg
+            }
             l.append(log)
         return tracer
     return tracer
