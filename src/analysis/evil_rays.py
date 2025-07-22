@@ -3,10 +3,11 @@ A script to compare and plot results of different solvers
 '''
 
 import sys
+from collections.abc import Iterable
 from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
 import pandas as pd
-from mpmath import mpf, mp, pi, power
+from mpmath import mpf, matrix, mp, pi, power
 from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
@@ -44,59 +45,81 @@ def compare_distances(
 
     # Combos of dists and solvers
     sources = [rg.get_normal_ray(tor, u, v, dist = d)[0] for d in dists]
-    solver_names = ["fr", "tt", "np"]
-    test_solvers = [get_solver(s) for s in solver_names]
+    rays = [(src, ray_dir) for src in sources]
+    results = compare_intersections(
+        tor,
+        rays,
+    )
+    results["dists"] = dists
+    return results
 
-    # Final results include each dist and every solver, as well as arbitrarily high precision just to be sure
-    final_results: dict = {}
-    final_results["dists"] = dists
-    # Also include the polynomial for diagnostics
-    polynoms = [tor._ray_intersection_polynomial(ray_src, ray_dir) for ray_src in sources]
-    final_results["polyn"] = polynoms
 
-    # Get results at ludicrous precision just to check
-    mp.prec = HIGH_PREC
-    highp_results = []
-    for i in range(len(dists)):
-        ray_src = sources[i]
-        dtb = tor.distance_to_boundary(ray_src, ray_dir, "tt")
-        hit = ray_src + ray_dir*dtb
-        highp_results.append(dtb if return_dtb else hit[2]) #Check just z coordinate for now?
-    final_results["highp"] = highp_results
+def get_first_intersection_z(tor, ray, slv):
+    inters = tor.ray_intersection_points(ray[0], ray[1], slv)
+    if inters:
+        return inters[0][2]
+    else:
+        return None
 
-    #Then for each solver, repeat at normal precision
-    mp.prec = prec
-    for s in range(len(test_solvers)):
-        solv = test_solvers[s]
-        name = solver_names[s]
-        results = []
-        results_manual = []
-        logs = []
-        for i in range(len(sources)):
-            ray_src = sources[i]
-            polynom = polynoms[i]
-            # log = []
-            # sys.settrace(get_tracer_to_list(log))
-            tracer = AlgTracer(solv)
-            tracer.begin()
-            dtb = tor.distance_to_boundary(ray_src, ray_dir, solv)
-            tracer.end()
-            logs.append(tracer.simple_logstring())
-            # logs.append(tracer.everything())
-            if dtb is None:
-                results.append(None)
-                continue
-            hit = ray_src + ray_dir*dtb
-            results.append(dtb if return_dtb else hit[2])
-            
-            man_solv = solv(polynom)
-            man_roots = man_solv()
-            man_roots = calc_real_roots(polynom, solv)
-            results_manual.append(man_roots)
-        final_results[name] = results
-        final_results[name+'_man'] = results_manual
-        final_results[name+'_log'] = logs
+
+def compare_intersections(
+    toroids: EllipticToroid|Iterable[EllipticToroid], 
+    rays: tuple[matrix,matrix]|Iterable[tuple[matrix, matrix]],
+    solver_names: Iterable[str] = ["fr", "tt", "np", "fr_hp", "tt_hp"],
+    get_result: callable = get_first_intersection_z
+) -> dict:
+    '''
+    Returns information about the result of every combination of the given toroids and rays.
+    Typically, one would iterate over either of these at a time, to have a single variable comparison of some kind.
     
+    Parameters
+    ----------
+    toroids : EllipticToroid | Iterable[EllipticToroid]
+        A series of toroids to compare, or just one toroid, if toroids aren't being compared.
+    rays : tuple[matrix, matrix] | Iterable[tuple[matrix, matrix]]
+        A series of rays to compare, or just one, if rays aren't what's being compared.
+        Ordered (source, direction)
+    solver_names: Iterable[str], default ["fr", "tt", "np", "fr_hp", "tt_hp"]
+        The names of the solvers to compare, with "_hp" suffixed to ones to be run in high precision.
+
+    Returns
+    -------
+    A dictionary with results of each sequential combination of toroids and rays.
+    '''
+    solver_precs = [HIGH_PREC if name.endswith("_hp") else DOUBLE_PREC for name in solver_names]
+    base_names = [name[:-3] if name.endswith("_hp") else name for name in solver_names]
+    solver_funcs = [get_solver(name) for name in base_names]
+
+    if isinstance(toroids, EllipticToroid):
+        toroids = [toroids]
+    if isinstance(rays[0], matrix): # I.e. it's only one pair of vectors, and not a list of pairs
+        rays = [rays]
+
+    mp.prec = HIGH_PREC
+    final_results = {
+        "polynomials":[tor._ray_intersection_polynomial(ray[0],ray[1]) for tor in toroids for ray in rays]
+    }
+    for i in range(len(solver_names)):
+        name = solver_names[i]
+        prec = solver_precs[i]
+        func = solver_funcs[i]
+
+        mp.prec = prec
+        
+        slv_results = []
+        slv_logs = []
+        for tor in toroids:
+            for ray in rays:
+                tracer = AlgTracer(func)
+                tracer.begin()
+                result = get_result(tor, ray, func)
+                tracer.end()
+
+                slv_results.append(result)
+                slv_logs.append(tracer.simple_logstring())
+        
+        final_results[name] = slv_results
+        final_results[name+"_logs"] = slv_logs
     return final_results
     
 
