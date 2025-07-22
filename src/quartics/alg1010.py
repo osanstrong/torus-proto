@@ -60,9 +60,9 @@ class Alg1010Solver:
         -------
         The (potentially complex) roots of the given quartic equation, as mpf/mpc instances
         '''
-        return self._solve_normalized_quartic()
+        return self._solve_normalized_quartic(self._coeffs)
 
-    def _solve_normalized_quartic(self) -> list[mpc]:
+    def _solve_normalized_quartic(self, coeffs) -> list[mpc]:
         '''The central solve of the algorithm, performed on self._coeffs
 
         Returns
@@ -72,7 +72,7 @@ class Alg1010Solver:
         '''
 
         # Assuming they've already been normalized
-        a, b, c, d = self._coeffs[1:5]
+        a, b, c, d = coeffs[1:5]
 
         phi0 = self._calc_phi0(False)
 
@@ -397,23 +397,35 @@ class Alg1010Solver:
         roots.clear()
         for i in range(4):
             roots.append(z[i])
-        return roots
+        return [r for r in roots]
 
-    def _solve_quadratic(self, a: mpf, b: mpf, roots: Iterable) -> Iterable[mpc]:
+    def _solve_quadratic_real(self, a, b, diskr) -> Iterable[mpf]:
+        div = -a - copysign(a, sqrt(diskr))
+
+        zmax = div / mpf(2)
+        zmin = mpf(0) if is_zero(zmax) else b / zmax
+
+        r0 = mpc(zmax)
+        r1 = mpc(zmin)
+
+        return r0, r1
+
+    def _solve_quadratic_comp(self, a, b, diskr) -> Iterable[mpc]:
+        sqrt_d = sqrt(-diskr)
+
+        r0 = mpc(-a + sqrt_d*1j) / mpf(2)
+        r1 = mpc(-a - sqrt_d*1j) / mpf(2)
+        
+        return r0, r1
+
+    def _solve_quadratic(self, a: mpf, b: mpf) -> Iterable[mpc]:
         diskr = sq(a) - 4*b
 
         if (diskr >= 0):
-            div = -a - copysign(a, sqrt(diskr))
-
-            zmax = div / mpf(2)
-            zmin = mpf(0) if is_zero(zmax) else b / zmax
-
-            roots[0] = mpc(zmax)
-            roots[1] = mpc(zmin)
+            roots = self._solve_quadratic_real(a, b, diskr)
         else:
-            sqrt_d = sqrt(-diskr)
-            roots[0] = mpc(-a + sqrt_d*1j) / mpf(2)
-            roots[1] = mpc(-a - sqrt_d*1j) / mpf(2)
+            roots = self._solve_quadratic_comp(a, b, diskr)
+
         return roots
     
     def _find_d2_l2(self, phi0: mpf, l1: mpf, l3: mpf) -> tuple[mpf]:
@@ -644,10 +656,8 @@ class Alg1010Solver:
         a1, b1, a2, b2 = self._abab_real_refined
 
         # Finally calculate roots as roots of p1(x) and p2(x) (end of section 2.1)
-        qroots = self._solve_quadratic(a1, b1, [None, None])
-        final_roots[0:2] = qroots
-        qroots = self._solve_quadratic(a2, b2, qroots)
-        final_roots[2:4] = qroots
+        final_roots[0:2] = self._solve_quadratic(a1, b1)
+        final_roots[2:4] = self._solve_quadratic(a2, b2)
         
         return final_roots
 
