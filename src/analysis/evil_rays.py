@@ -49,9 +49,42 @@ def compare_distances(
     results = compare_intersections(
         tor,
         rays,
+        base_prec=prec
     )
     results["dists"] = dists
     return results
+
+
+# 2: Compare a grazing ray at different distances
+def compare_grazes_by_distance(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(-16, 12)],
+    u: mpf = 0, v: mpf = pi,
+    ep: mpf = 0,
+    return_logs: bool = True
+) -> dict:
+    dists = [mpf(d) for d in dists]
+    mp.prec = HIGH_PREC
+    ray_dir = rg.get_grazing_ray(tor, u=u, v=v, distance = 1)[1]
+
+    # Combos of dists and solvers
+    sources = [rg.get_grazing_ray(tor, u=u, v=v, distance = d, pos_epsilon=ep)[0] for d in dists]
+    rays = [(src, ray_dir) for src in sources]
+    results = compare_intersections(
+        tor,
+        rays,
+        get_result=get_first_intersection
+    )
+    results["dists"] = dists
+    return results
+
+
+def get_first_intersection(tor, ray, slv):
+    inters = tor.ray_intersection_points(ray[0], ray[1], slv)
+    if inters:
+        return inters[0]
+    else:
+        return None
 
 
 def get_first_intersection_z(tor, ray, slv):
@@ -66,7 +99,9 @@ def compare_intersections(
     toroids: EllipticToroid|Iterable[EllipticToroid], 
     rays: tuple[matrix,matrix]|Iterable[tuple[matrix, matrix]],
     solver_names: Iterable[str] = ["fr", "tt", "np", "fr_hp", "tt_hp"],
-    get_result: callable = get_first_intersection_z
+    get_result: callable = get_first_intersection_z,
+    base_prec: int = DOUBLE_PREC,
+    high_prec: int = HIGH_PREC,
 ) -> dict:
     '''
     Returns information about the result of every combination of the given toroids and rays.
@@ -97,6 +132,7 @@ def compare_intersections(
 
     mp.prec = HIGH_PREC
     final_results = {
+        "rays":rays,
         "polynomials":[tor._ray_intersection_polynomial(ray[0],ray[1]) for tor in toroids for ray in rays]
     }
     for i in range(len(solver_names)):
@@ -129,6 +165,44 @@ def to_db(d: dict) -> pd.DataFrame:
 
 def print_as_db(d: dict):
     print(to_db(d))
+
+
+def get_serialized_mpf(val: mpf) -> str:
+    return repr(val)
+
+
+def serialize_iter_mpfs(l: Iterable):
+    for i in range(len(l)):
+        item = l[i]
+        if isinstance(item, mpf):
+            l[i] = get_serialized_mpf(item)
+        elif isinstance(item, matrix):
+            l[i] = [get_serialized_mpf(n) for n in item]
+        # elif isinstance(item, Iterable):
+        #     if isinstance(item, tuple):
+        #         l[i] = [n for n in item]
+        #         item = l[i]
+        #     serialize_iter_mpfs(item)
+        # if isinstance(item, dict):
+        #     serialize_dict_mpfs(item)
+        # elif isinstance(item, Iterable):
+        #     serialize_iter_mpfs(item)
+        # elif isinstance(item, mpf):
+        #     l[i] = get_serialized_mpf(item)
+
+
+def serialize_dict_mpfs(d: dict):
+    for key in d:
+        item = d[key]
+        if isinstance(item, dict):
+            serialize_dict_mpfs(item)
+        elif isinstance(item, Iterable):
+            if isinstance(item, tuple):
+                d[key] = [i for i in item]
+                item = d[key]
+            serialize_iter_mpfs(item)
+        elif isinstance(item, mpf):
+            d[key] = get_serialized_mpf(item)
 
 
 class AlgTracer():
