@@ -31,7 +31,7 @@ MpfAble: type = mpf|float|str
 
 
 # 1: Compare intersection point at different distances for different solvers
-def compare_distances(
+def compare_normals_by_distances(
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(-16, 12)],
     prec: int = DOUBLE_PREC,
@@ -45,10 +45,9 @@ def compare_distances(
 
     # Combos of dists and solvers
     sources = [rg.get_normal_ray(tor, u, v, dist = d)[0] for d in dists]
-    rays = [(src, ray_dir) for src in sources]
+    setups = [(tor, src, ray_dir) for src in sources]
     results = compare_intersections(
-        tor,
-        rays,
+        setups,
         base_prec=prec
     )
     results["dists"] = dists
@@ -69,26 +68,128 @@ def compare_grazes_by_distance(
 
     # Combos of dists and solvers
     sources = [rg.get_grazing_ray(tor, u=u, v=v, distance = d, pos_epsilon=ep)[0] for d in dists]
-    rays = [(src, ray_dir) for src in sources]
+    setups = [(tor, src, ray_dir) for src in sources]
     results = compare_intersections(
-        tor,
-        rays,
+        setups,
         get_result=get_first_intersection
     )
     results["dists"] = dists
     return results
 
 
-def get_first_intersection(tor, ray, slv):
-    inters = tor.ray_intersection_points(ray[0], ray[1], slv)
+# 3: Compare normals by distances by scale
+def compare_normals_by_distance_by_scale(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(-4, 12)],
+    prec: int = DOUBLE_PREC,
+    u: mpf = 0, v: mpf = pi / 2,
+    scales: list = [10**i for i in range(-3, 4)],
+) -> dict:
+    dists = [mpf(d) for d in dists]
+    scales = [mpf(s) for s in scales]
+    mp.prec = HIGH_PREC
+    ray_dir = rg.get_normal_ray(tor, u=u, v=v, dist=1)[1]
+
+    toroids = [EllipticToroid(tor.tor_rad*s, tor.hor_rad*s, tor.ver_rad*s) for s in scales]
+    sources = [rg.get_normal_ray(t, u=u, v=v, dist=d)[0] for t in toroids for d in dists]
+    toroids = [t for t in toroids for d in dists]
+    setups = [(toroids[i], sources[i], ray_dir) for i in range(len(sources))]
+    results = compare_intersections(
+        setups,
+        get_result=get_first_intersection
+    )
+    results["dists"] = [d for s in scales for d in dists]
+    results["scale"] = [s for s in scales for d in dists]
+    return results
+
+    
+# 4: Compare normals by distances by scale of major radius
+def compare_normals_by_distance_by_scale_r(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(-4, 12)],
+    prec: int = DOUBLE_PREC,
+    u: mpf = 0, v: mpf = pi / 2,
+    scales: list = [10**i for i in range(-3, 4)],
+) -> dict:
+    dists = [mpf(d) for d in dists]
+    scales = [mpf(s) for s in scales]
+    mp.prec = HIGH_PREC
+    ray_dir = rg.get_normal_ray(tor, u=u, v=v, dist=1)[1]
+
+    toroids = [EllipticToroid(max(tor.tor_rad*s, tor.hor_rad), tor.hor_rad, tor.ver_rad) for s in scales]
+    sources = [rg.get_normal_ray(t, u=u, v=v, dist=d)[0] for t in toroids for d in dists]
+    toroids = [t for t in toroids for d in dists]
+    setups = [(toroids[i], sources[i], ray_dir) for i in range(len(sources))]
+    results = compare_intersections(
+        setups,
+        get_result=get_first_intersection
+    )
+    results["dists"] = [d for s in scales for d in dists]
+    results["scale"] = [s for s in scales for d in dists]
+    return results
+
+
+def compare_normals_by_distance_by_scale_b(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(-4, 12)],
+    prec: int = DOUBLE_PREC,
+    u: mpf = 0, v: mpf = pi / 2,
+    scales: list = [10**i for i in range(-3, 4)],
+) -> dict:
+    dists = [mpf(d) for d in dists]
+    scales = [mpf(s) for s in scales]
+    mp.prec = HIGH_PREC
+    ray_dir = rg.get_normal_ray(tor, u=u, v=v, dist=1)[1]
+
+    toroids = [EllipticToroid(tor.tor_rad, tor.hor_rad, tor.ver_rad*s) for s in scales]
+    sources = [rg.get_normal_ray(t, u=u, v=v, dist=d)[0] for t in toroids for d in dists]
+    toroids = [t for t in toroids for d in dists]
+    setups = [(toroids[i], sources[i], ray_dir) for i in range(len(sources))]
+    results = compare_intersections(
+        setups,
+        get_result=get_first_intersection
+    )
+    results["dists"] = [d for s in scales for d in dists]
+    results["scale"] = [s for s in scales for d in dists]
+    return results
+
+
+# 6: Compare normals by distances by scaling r and a simultaneously
+def compare_normals_by_distance_by_scale_ra(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(-4, 12)],
+    prec: int = DOUBLE_PREC,
+    u: mpf = 0, v: mpf = pi / 2,
+    scales: list = [10**i for i in range(-3, 4)],
+) -> dict:
+    dists = [mpf(d) for d in dists]
+    scales = [mpf(s) for s in scales]
+    mp.prec = HIGH_PREC
+    ray_dir = rg.get_normal_ray(tor, u=u, v=v, dist=1)[1]
+
+    toroids = [EllipticToroid(tor.tor_rad*s, tor.hor_rad*s, tor.ver_rad) for s in scales]
+    sources = [rg.get_normal_ray(t, u=u, v=v, dist=d)[0] for t in toroids for d in dists]
+    toroids = [t for t in toroids for d in dists]
+    setups = [(toroids[i], sources[i], ray_dir) for i in range(len(sources))]
+    results = compare_intersections(
+        setups,
+        get_result=get_first_intersection
+    )
+    results["dists"] = [d for s in scales for d in dists]
+    results["scale"] = [s for s in scales for d in dists]
+    return results
+
+
+def get_first_intersection(tor, ray_src, ray_dir, slv):
+    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
     if inters:
         return inters[0]
     else:
         return None
 
 
-def get_first_intersection_z(tor, ray, slv):
-    inters = tor.ray_intersection_points(ray[0], ray[1], slv)
+def get_first_intersection_z(tor, ray_src, ray_dir, slv):
+    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
     if inters:
         return inters[0][2]
     else:
@@ -96,44 +197,22 @@ def get_first_intersection_z(tor, ray, slv):
 
 
 def compare_intersections(
-    toroids: EllipticToroid|Iterable[EllipticToroid], 
-    rays: tuple[matrix,matrix]|Iterable[tuple[matrix, matrix]],
+    setups: Iterable[tuple[EllipticToroid, matrix, matrix]],
     solver_names: Iterable[str] = ["fr", "tt", "np", "fr_hp", "tt_hp"],
-    get_result: callable = get_first_intersection_z,
+    get_result: callable = get_first_intersection,
     base_prec: int = DOUBLE_PREC,
     high_prec: int = HIGH_PREC,
 ) -> dict:
-    '''
-    Returns information about the result of every combination of the given toroids and rays.
-    Typically, one would iterate over either of these at a time, to have a single variable comparison of some kind.
-    
-    Parameters
-    ----------
-    toroids : EllipticToroid | Iterable[EllipticToroid]
-        A series of toroids to compare, or just one toroid, if toroids aren't being compared.
-    rays : tuple[matrix, matrix] | Iterable[tuple[matrix, matrix]]
-        A series of rays to compare, or just one, if rays aren't what's being compared.
-        Ordered (source, direction)
-    solver_names: Iterable[str], default ["fr", "tt", "np", "fr_hp", "tt_hp"]
-        The names of the solvers to compare, with "_hp" suffixed to ones to be run in high precision.
-
-    Returns
-    -------
-    A dictionary with results of each sequential combination of toroids and rays.
-    '''
     solver_precs = [HIGH_PREC if name.endswith("_hp") else DOUBLE_PREC for name in solver_names]
     base_names = [name[:-3] if name.endswith("_hp") else name for name in solver_names]
     solver_funcs = [get_solver(name) for name in base_names]
-
-    if isinstance(toroids, EllipticToroid):
-        toroids = [toroids]
-    if isinstance(rays[0], matrix): # I.e. it's only one pair of vectors, and not a list of pairs
-        rays = [rays]
-
+    
     mp.prec = HIGH_PREC
     final_results = {
-        "rays":rays,
-        "polynomials":[tor._ray_intersection_polynomial(ray[0],ray[1]) for tor in toroids for ray in rays]
+        "tor": [s[0] for s in setups],
+        "ray_src": [s[1] for s in setups],
+        "ray_dir": [s[2] for s in setups],
+        "polynomials":[s[0]._ray_intersection_polynomial(s[1], s[2]) for s in setups]
     }
     for i in range(len(solver_names)):
         name = solver_names[i]
@@ -144,18 +223,22 @@ def compare_intersections(
         
         slv_results = []
         slv_logs = []
-        for tor in toroids:
-            for ray in rays:
-                tracer = AlgTracer(func)
-                tracer.begin()
-                result = get_result(tor, ray, func)
-                tracer.end()
+        for setup in setups:
+            tor = setup[0]
+            ray_src = setup[1]
+            ray_dir = setup[2]
 
-                slv_results.append(result)
-                slv_logs.append(tracer.simple_logstring())
+            tracer = AlgTracer(func)
+            tracer.begin()
+            result = get_result(tor, ray_src, ray_dir, func)
+            tracer.end()
+
+            slv_results.append(result)
+            slv_logs.append(tracer.simple_logstring())
         
         final_results[name] = slv_results
         final_results[name+"_logs"] = slv_logs
+    mp.prec = base_prec
     return final_results
     
 
