@@ -18,6 +18,8 @@ from math import isclose
 
 MpfAble: type = float|int|str|mpf
 
+B0_TOLERANCE: mpf = mpf("1e-8")
+
 
 class FerrariSolver:
     def __init__(self, coeffs: Iterable[MpfAble]):
@@ -49,11 +51,11 @@ class FerrariSolver:
         -------
         A list of (potentially complex) roots of the given quartic polynomial, as determined by the Ferrari-Cardano method 
         '''        
-        return self._solve_normalized_quartic()
+        return self._solve_normalized_quartic(self._coeffs)
 
     # Helper Functions
 
-    def _solve_normalized_quartic(self):
+    def _solve_normalized_quartic(self, coeffs):
         '''
         The core function of the functor; solves the stored normalized quadratic equation.
 
@@ -61,20 +63,17 @@ class FerrariSolver:
         -------
         The (potentially complex) roots of the quartic polynomial stored in the functor.
         '''
-        assert self._coeffs[0] == 1
-        assert all_instances(self._coeffs, mpf)
-        b, c, d, e = self._coeffs[1:5]
+        assert coeffs[0] == 1
+        assert all_instances(coeffs, mpf)
+        b, c, d, e = coeffs[1:5]
         # 1/4 of b, because it comes up a lot
         qb = 0.25*b
-        qb2 = sq(qb)
 
         # Subsidiary cubic equation
-        p = 3*qb2 - 0.5*c
-        q = b*qb2 - c*qb + 0.5*d
-        r = 3*qb2*qb2 - c*qb2 + d*qb - e
+        p, q, r = self._subsidiary_cubic(qb, c, d, e)
 
         # Edge case: equation is biquadratic
-        if isclose(q, 0, abs_tol=mpmath.power(2, -mpmath.mp.prec)):
+        if self._is_zero(q, tol=B0_TOLERANCE):
             ir0, ir1 = self._solve_normalized_quadratic(-2*p, -r) 
             r0 = mpmath.sqrt(ir0)
             r1 = -r0
@@ -86,7 +85,7 @@ class FerrariSolver:
         z0 = self._one_real_root_of_normalized_cubic(p, r, p*r - 0.5*sq(q))
 
         s = mpmath.sqrt(2*p + 2*z0.real + 0j)
-        if is_zero(s):
+        if self._is_zero(s):
             t = sq(z0) + r
         else:
             t = -q / s
@@ -96,6 +95,14 @@ class FerrariSolver:
         r2, r3 = self._solve_normalized_quadratic(-s.real, z0.real - t.real)
         # Shift roots back to x
         return r0 - qb, r1 - qb, r2 - qb, r3 - qb
+
+    def _subsidiary_cubic(self, qb, c, d, e) -> tuple[mpf]:
+        qb2 = sq(qb)
+        return (
+            3*qb2 - 0.5*c,
+            4*qb*qb2 - c*qb + 0.5*d,
+            3*qb2*qb2 - c*qb2 + d*qb - e
+        )
 
     def _solve_normalized_quadratic(self, b, c) -> tuple[mpc]:
         '''
@@ -148,7 +155,7 @@ class FerrariSolver:
         g = third_b * (2*third_b2 - c) + d
         h = 0.25*sq(g) + power(f, 3)
 
-        if are_zero([f, g, h]):
+        if self._are_zero([f, g, h]):
             return -cbrt(d)
         elif h <= 0:
             j = mpmath.sqrt(-f)
@@ -162,6 +169,16 @@ class FerrariSolver:
             u = cbrt(-0.5*g - sqrt_h)
             s_plus_u = s + u
             return s_plus_u - third_b
+
+    def _is_zero(self, val, tol=None) -> bool:
+        '''Returns whether the given value is 0 (in both real and imaginary components),
+        using mpmath's chop() function.'''
+        return mpmath.chop(val, tol=tol) == 0
+
+    def _are_zero(self, vals: Iterable[mpf|mpc]) -> bool:
+        '''Returns whether the given values are all 0 (in both real and imaginary components),
+        using mpmath's chop() function.'''
+        return all(self._is_zero(val) for val in vals)
 
 
 def sq(val: mpc):
@@ -199,16 +216,16 @@ def cbrt(val: mpc):
         return -mpmath.cbrt(-val)
 
 
-def is_zero(val: mpf|mpc) -> bool:
-    '''Returns whether the given value is 0 (in both real and imaginary components),
-    using mpmath's chop() function.'''
-    return mpmath.chop(val) == 0
+# def is_zero(val: mpf|mpc, tol=None) -> bool:
+#     '''Returns whether the given value is 0 (in both real and imaginary components),
+#     using mpmath's chop() function.'''
+#     return mpmath.chop(val, tol=tol) == 0
 
 
-def are_zero(vals: Iterable[mpf|mpc]) -> bool:
-    '''Returns whether the given values are all 0 (in both real and imaginary components),
-    using mpmath's chop() function.'''
-    return all(is_zero(val) for val in vals)
+# def are_zero(vals: Iterable[mpf|mpc]) -> bool:
+#     '''Returns whether the given values are all 0 (in both real and imaginary components),
+#     using mpmath's chop() function.'''
+#     return all(is_zero(val) for val in vals)
 
 
 def all_instances(vals: Iterable, of_type: type) -> bool:
