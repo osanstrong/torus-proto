@@ -84,7 +84,7 @@ class EllipticToroid:
             raise ValueError(f"Ellipse radii must be greater than 0 (hor_rad={hor_rad})")
         if not ver_rad > 0: 
             raise ValueError(f"Ellipse radii must be greater than 0 (ver_rad={ver_rad})")
-        if not tor_rad > hor_rad: 
+        if not tor_rad >= hor_rad: 
             raise ValueError(f"Degenerate toroids not supported (tor_rad={tor_rad} < {hor_rad}=hor_rad))")
         self._tor_rad = tor_rad
         self._hor_rad = hor_rad
@@ -292,6 +292,9 @@ class EllipticToroid:
         coefficient is always 1.
         '''
 
+        prev_prec = mpmath.mp.prec
+        mpmath.mp.prec = 999
+
         [x0, y0, z0] = to_mpfs(ray_pos)
 
         [ax, ay, az] = to_mpfs(ray_dir)
@@ -314,8 +317,12 @@ class EllipticToroid:
         c2 = sq(m) + 2*u - q*f
         c1 = 2*m*u - q*l
         c0 = sq(u) - q*t
+
+        mpmath.mp.prec = prev_prec
         return [c4, c3, c2, c1, c0]
 
+    def __repr__(self) -> str:
+        return f"(r: {self.tor_rad}, a: {self.hor_rad}, b: {self.ver_rad})"
 
 # misc util functions
 
