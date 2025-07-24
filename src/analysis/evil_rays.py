@@ -38,6 +38,7 @@ def compare_normals_by_distances(
     u: mpf = 0, v: mpf = pi / 2,
     return_dtb: bool = False,
     return_logs: bool = False,
+    result_func: callable = get_first_intersection
 ) -> dict:
     dists = [mpf(d) for d in dists]
     mp.prec = HIGH_PREC
@@ -48,7 +49,8 @@ def compare_normals_by_distances(
     setups = [(tor, src, ray_dir) for src in sources]
     results = compare_intersections(
         setups,
-        base_prec=prec
+        base_prec=prec,
+        get_result=result_func
     )
     results["dists"] = dists
     return results
@@ -178,6 +180,118 @@ def compare_normals_by_distance_by_scale_ra(
     results["dists"] = [d for s in scales for d in dists]
     results["scale"] = [s for s in scales for d in dists]
     return results
+
+
+# 7: Compare intersection point at different distances for different solvers across the whole range of u and v
+def uvspread_normals(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
+    prec: int = DOUBLE_PREC,
+) -> dict:
+    u_count = v_count = 5
+    us = [i*2*mp.pi / mpf(u_count) for i in range(u_count)]
+    vs = [i*2*mp.pi / mpf(v_count) for i in range(v_count)]
+    uvs = [(u,v) for u in us for v in vs]
+    return uvs_normals_by_distances(uvs, tor=tor, dists=dists,prec=prec)
+
+
+# 7: Compare intersection point at different distances for different solvers across random spreads of u and v
+def uvrand_normals(
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
+    prec: int = DOUBLE_PREC,
+) -> dict:
+    uv_count = 25
+    uvs = [(mp.rand()*2*mp.pi, mp.rand()*2*mp.pi) for i in range(uv_count)]
+    return uvs_normals_by_distances(uvs, tor=tor, dists=dists,prec=prec)
+
+
+def uvs_normals_by_distances(
+    uvs,
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
+    prec: int = DOUBLE_PREC,
+) -> dict:
+    result_list = []
+    
+    for uv in uvs:
+        u, v = uv
+        uv_result = compare_normals_by_distances(tor=tor, dists=dists, prec=prec, u=u, v=v, result_func=get_distance)
+        result_list.append(uv_result)
+        print(f"On result: {len(result_list)}")
+    
+    tt_devs = [] # Compared to the high precision result
+    fr_devs = []
+    tt_means = []
+    fr_means = []
+    tt_stddevs = [] # Compared to the average
+    fr_stddevs = []
+
+    tt_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
+    fr_failrates = []
+
+    for i in range(len(dists)):
+        tt_dev_sum = mpf(0)
+        fr_dev_sum = mpf(0)
+        tt_mean_sum = mpf(0)
+        fr_mean_sum = mpf(0)
+    
+        tt_failcount = 0 # Includes hp_failcount for these two
+        fr_failcount = 0
+        hp_failcount = 0
+        for r in result_list:
+            tt_result = r["tt"][i]
+            fr_result = r["fr"][i]
+            hp_result = r["tt_hp"][i]
+            if hp_result is None: hp_result = r["fr_hp"][i]
+            if hp_result is None: #This should be rare but it is possible
+                tt_failcount += 1
+                fr_failcount += 1
+                hp_failcount += 1
+                continue
+
+            if not tt_result is None:
+                tt_dev_sum += (tt_result-hp_result)**2
+                tt_mean_sum += tt_result
+            else:
+                tt_failcount += 1
+
+            if not fr_result is None:
+                fr_dev_sum += (fr_result-hp_result)**2
+                fr_mean_sum += fr_result
+            else:
+                fr_failcount += 1
+        
+        uv_count = len(result_list)
+        tt_successes = mpf(uv_count - tt_failcount)
+        tt_mean = None if tt_successes == 0 else tt_mean_sum / tt_successes
+        tt_dev = None if tt_successes == 0 else mp.sqrt(tt_dev_sum / tt_successes)
+        tt_devs.append(tt_dev)
+        tt_means.append(tt_mean)
+        tt_failrates.append(mpf(tt_failcount)/mpf(uv_count))
+
+        fr_successes = mpf(uv_count - fr_failcount)
+        fr_mean = None if fr_successes == 0 else fr_mean_sum / fr_successes
+        fr_dev = None if fr_successes == 0 else mp.sqrt(fr_dev_sum / fr_successes)
+        fr_devs.append(fr_dev)
+        fr_means.append(fr_mean)
+        fr_failrates.append(mpf(fr_failcount)/mpf(uv_count))
+    
+    return {
+        "raw_results":result_list,
+        "dists":dists,
+        "tt_mean":tt_means,
+        "tt_dev":tt_devs,
+        "tt_fail":tt_failrates,
+        "fr_mean":fr_means,
+        "fr_dev":fr_devs,
+        "fr_fail":fr_failrates
+    }
+
+
+
+def get_distance(tor, ray_src, ray_dir, slv):
+    return tor.distance_to_boundary(ray_src, ray_dir, slv)
 
 
 def get_first_intersection(tor, ray_src, ray_dir, slv):
@@ -326,7 +440,7 @@ class AlgTracer():
         code = frame.f_code
         func_name = code.co_name
         line_no = frame.f_lineno
-        if not func_name in dir(self.namespace):
+        if not func_name in dir(self.namespace)+dir(EllipticToroid):
             return self
         if func_name.startswith("__"):
             return self
