@@ -14,15 +14,62 @@ from src.solvers import get_solver, calc_real_roots
 import src.quartics.alg1010 as alg1010
 
 
-# ----------------
+# =--------------=
 # Useful constants
-# ----------------
+# =--------------=
 
 
 DOUBLE_PREC: int = 53
 QUAD_PREC: int = 113
 HIGH_PREC: int = 999
 MpfAble: type = mpf|float|str
+
+
+# =------------------=
+# Experimental Presets
+# =------------------=
+
+# ITER_TOROID_CM: EllipticToroid = EllipticToroid() #Toroid the scale of ITER, though ITER is a different kind
+# ITER_OUTER_DIVERTOR_CM: EllipticToroid = EllipticToroid() #Toroid matching the outer curved section of the ITER divertor; Has more extreme difference in dimensions
+
+
+# =---------------=
+# Final experiments
+# =---------------=
+
+
+def epsilon_avoid_backcollision():
+    '''
+    How close can a ray start to the surface of a toroid and reliably
+    avoid intersecting with it. (While moving away)
+
+    Cases considered for rays normal to the surface, and rays tangential
+    to the surface.
+    '''
+    # First, normal rays
+    special_uvs = [] 
+    random_uvs = []
+    # Iterate through different distances to try and find 
+    full_results: dict = {}
+    passfail_history: list[bool] = []
+
+    epsilons = [power(10, i) for i in range] #Start with a given series
+    # full_results = uvrand_normals(dists=epsilons, uv_count=)
+
+    pass
+
+
+# =--------------------------------------------------------=
+# Experimental methods, mostly toying around in this section
+# =--------------------------------------------------------=
+
+
+def get_first_intersection(tor, ray_src, ray_dir, slv):
+    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
+    if inters:
+        return inters[0]
+    else:
+        return None
 
 
 # -----------
@@ -200,8 +247,8 @@ def uvrand_normals(
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
     prec: int = DOUBLE_PREC,
+    uv_count: int = 25
 ) -> dict:
-    uv_count = 25
     uvs = [(mp.rand()*2*mp.pi, mp.rand()*2*mp.pi) for i in range(uv_count)]
     return uvs_normals_by_distances(uvs, tor=tor, dists=dists,prec=prec)
 
@@ -218,7 +265,7 @@ def uvs_normals_by_distances(
         u, v = uv
         uv_result = compare_normals_by_distances(tor=tor, dists=dists, prec=prec, u=u, v=v, result_func=get_distance)
         result_list.append(uv_result)
-        print(f"On result: {len(result_list)}")
+        print(f"Rays complete: {len(result_list)}")
     
     tt_devs = [] # Compared to the high precision result
     fr_devs = []
@@ -294,14 +341,6 @@ def get_distance(tor, ray_src, ray_dir, slv):
     return tor.distance_to_boundary(ray_src, ray_dir, slv)
 
 
-def get_first_intersection(tor, ray_src, ray_dir, slv):
-    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
-    if inters:
-        return inters[0]
-    else:
-        return None
-
-
 def get_first_intersection_z(tor, ray_src, ray_dir, slv):
     inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
     if inters:
@@ -356,12 +395,12 @@ def compare_intersections(
     return final_results
     
 
-def to_db(d: dict) -> pd.DataFrame:
+def to_df(d: dict) -> pd.DataFrame:
     return pd.DataFrame.from_dict(d, orient="index").transpose()
 
 
-def print_as_db(d: dict):
-    print(to_db(d))
+def print_as_df(d: dict):
+    print(to_df(d))
 
 
 def get_serialized_mpf(val: mpf) -> str:
@@ -477,4 +516,34 @@ class AlgTracer():
             else f"-> {e["content"]["returned"]}") \
             for e in self._logs
         ])
-        
+
+
+def concat_dicts(dict1, dict2) -> dict:
+    if not len(dict1) == len(dict2) or \
+        not all(key1 in dict2 for key1 in dict1):
+        raise ValueError(f"Dictionaries must have identical keys. d1: {dict1}, d2: {dict2}")
+    if not all(isinstance(dict1[k], list) and isinstance(dict2[k], list) for k in dict1):
+        raise ValueError(f"Dictionaries must have list data to concatenate with each other. d1: {dict1}, d2: {dict2}")
+
+    new_dict = {}
+    for key in dict1:
+        new_dict[key] = dict1[key].copy()
+        new_dict[key].extend(dict2[key])
+    
+    return new_dict
+
+
+# Takes the two given dicts of parallel lists, and inserts those of one into those of the other at a specified index.
+def insert_dict_at_index(base_dict, insert_dict, idx) -> dict:
+    if not len(base_dict) == len(insert_dict) or \
+        not all(key1 in insert_dict for key1 in base_dict):
+        raise ValueError(f"Dictionaries must have identical keys. d1: {base_dict}, d2: {insert_dict}")
+    if not all(isinstance(base_dict[k], list) and isinstance(insert_dict[k], list) for k in base_dict):
+        raise ValueError(f"Dictionaries must have list data to concatenate with each other. d1: {base_dict}, d2: {insert_dict}")
+
+    new_dict = {}
+    for key in base_dict:
+        new_dict[key] = base_dict[key].copy()
+        new_dict[key][idx:idx] = insert_dict[key]
+    
+    return new_dict
