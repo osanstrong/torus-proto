@@ -48,15 +48,18 @@ def epsilon_avoid_backcollision():
     '''
     # First, normal rays
     special_uvs = [] 
-    random_uvs = []
+    uv_count = 10
+    random_uvs = [(mp.rand()*2*mp.pi, mp.rand()*2*mp.pi) for i in range(uv_count)]
     # Iterate through different distances to try and find 
     full_results: dict = {}
     passfail_history: list[bool] = []
 
-    epsilons = [power(10, i) for i in range] #Start with a given series
-    # full_results = uvrand_normals(dists=epsilons, uv_count=)
-
-    pass
+    epsilons = [power(10, i) for i in range(-20,-12)] #Start with a given series
+    full_results = uvs_normals_by_distances(random_uvs, dists=epsilons, face_outwards=True)
+    passfail_history = [full_results["tt_fail"][i] == 1 for i in range(len(epsilons))]
+    
+    full_results["valid"] = passfail_history
+    return full_results
 
 
 # =--------------------------------------------------------=
@@ -85,11 +88,13 @@ def compare_normals_by_distances(
     u: mpf = 0, v: mpf = pi / 2,
     return_dtb: bool = False,
     return_logs: bool = False,
-    result_func: callable = get_first_intersection
+    result_func: callable = get_first_intersection,
+    face_outwards: bool = False
 ) -> dict:
     dists = [mpf(d) for d in dists]
     mp.prec = HIGH_PREC
     ray_dir = rg.get_normal_ray(tor, u, v, dist = 1)[1]
+    if face_outwards: ray_dir *= -1
 
     # Combos of dists and solvers
     sources = [rg.get_normal_ray(tor, u, v, dist = d)[0] for d in dists]
@@ -258,12 +263,13 @@ def uvs_normals_by_distances(
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
     prec: int = DOUBLE_PREC,
+    face_outwards: bool = False
 ) -> dict:
     result_list = []
     
     for uv in uvs:
         u, v = uv
-        uv_result = compare_normals_by_distances(tor=tor, dists=dists, prec=prec, u=u, v=v, result_func=get_distance)
+        uv_result = compare_normals_by_distances(tor=tor, dists=dists, prec=prec, u=u, v=v, result_func=get_distance, face_outwards=face_outwards)
         result_list.append(uv_result)
         print(f"Rays complete: {len(result_list)}")
     
