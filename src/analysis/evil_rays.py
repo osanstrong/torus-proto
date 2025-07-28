@@ -6,12 +6,21 @@ import sys
 from collections.abc import Iterable
 from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
+from numpy import arange
 import pandas as pd
 from mpmath import mpf, matrix, mp, pi, power
 from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
 import src.quartics.alg1010 as alg1010
+
+
+# =-----------=
+# Random caches
+# =-----------=
+
+
+_geab_cache = None
 
 
 # =--------------=
@@ -39,9 +48,67 @@ MpfAble: type = mpf|float|str
 # =---------------=
 
 
+def graph_eps_avoid_back(
+    num_rays: int = 10,
+    use_cache: bool = False #Whether to use the cache data or run calcs all over again from scratch
+):
+    ''''''
+    if not use_cache: #If we want to recalculate everything
+        uv_pairs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        solvers = ("tt", "fr")
+        precs = {
+            "single":SINGLE_PREC,
+            "double":DOUBLE_PREC,
+            "quad":QUAD_PREC
+        }
+        closest_escapes = {}
+        for prec in precs:
+            slv_results = [None,]*len(solvers)
+            for i in range(len(solvers)):
+                slv_res = epsilon_avoid_backcollision(
+                    uv_pairs=uv_pairs, 
+                    prec=precs[prec],
+                    solver_code=solvers[i]
+                )
+                closest_escapes[f"{solvers[i]}_full"] = slv_res
+                last_fail_idx = max([i if not slv_res["valid"][i] else -99999 for i in range(len(slv_res["valid"]))])
+                closest = slv_res["dists"][last_fail_idx+1]
+                slv_results[i] = closest
+            closest_escapes[solvers[i]] = slv_results
+        closest_escapes["solvers"] = solvers
+        closest_escapes["precs"] = precs
+        _geab_cache = closest_escapes
+    else:
+        closest_escapes = _geab_cache
+        solvers = closest_escapes["solvers"]
+        precs = closest_escapes["precs"]
+    
+    # The actual graphing
+    x = arange(len(solvers)) #Label locations
+    width = 0.25 #Width of bars
+
+    fig, ax = plt.subplots(layout='constrained')
+    for i in range(len(solvers)):
+        # prec = precs[i]
+        slv = solvers[i]
+        offset = width*i
+        rects = ax.bar(x+offset, [closest_escapes[prec][i] for prec in precs], width, label=slv)
+        ax.bar_label(rects, padding=3)
+
+    # Add text
+    ax.set_ylabel("Closest safe distance")
+    ax.set_title("Closest escapes with solvers and precisions")
+    ax.set_xticks(x+width, solvers)
+    ax.legend(loc="upper left", ncols=3)
+    plt.show()
+    # print(_geab_cache)
+
+
+
 def epsilon_avoid_backcollision(
-    epsilons: list = [power(10, i) for i in range(-20,-12, 4)],
+    epsilons: list = [power(10, i) for i in [-400,-100,-50,-25,0]],
     uv_count: int = 10,
+    uv_pairs: list = None, #If given specific uv pairs, override random assignment
     prec: int = DOUBLE_PREC,
     log_convergence: MpfAble = "0.1",
     polyn_calc_prec: int = None,
@@ -62,15 +129,17 @@ def epsilon_avoid_backcollision(
     '''
     log_convergence = mp.convert(log_convergence)
     # First, normal rays
-    special_uvs = [] 
+    special_uvs = []
     random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(uv_count)]
+    if uv_pairs is None:
+        uv_pairs = random_uvs
     # Iterate through different distances to try and find 
     full_results: dict = {}
     passfail_history: list[bool] = []
 
     #Start with the given series
     dist_results = lambda dists: uvs_normals_by_distances(
-        random_uvs, dists=dists, face_outwards=True, 
+        uv_pairs, dists=dists, face_outwards=True, 
         prec=prec, polyn_calc_prec=polyn_calc_prec,
         verbose=verbose
     )
