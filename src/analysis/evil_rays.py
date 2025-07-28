@@ -19,6 +19,7 @@ import src.quartics.alg1010 as alg1010
 # =--------------=
 
 
+SINGLE_PREC: int = 23
 DOUBLE_PREC: int = 53
 QUAD_PREC: int = 113
 HIGH_PREC: int = 999
@@ -38,26 +39,85 @@ MpfAble: type = mpf|float|str
 # =---------------=
 
 
-def epsilon_avoid_backcollision():
+def epsilon_avoid_backcollision(
+    epsilons: list = [power(10, i) for i in range(-20,-12, 4)],
+    uv_count: int = 10,
+    prec: int = DOUBLE_PREC,
+    log_convergence: MpfAble = "0.1",
+    polyn_calc_prec: int = None,
+    solver_code: str = "tt",
+    verbose: bool = False,
+):
     '''
     How close can a ray start to the surface of a toroid and reliably
     avoid intersecting with it. (While moving away)
 
     Cases considered for rays normal to the surface, and rays tangential
     to the surface.
+    
+    Parameters
+    ----------
+    epsilons : list[mpf]
+        The distances away from the torus to test, in ascending order
     '''
+    log_convergence = mp.convert(log_convergence)
     # First, normal rays
     special_uvs = [] 
-    uv_count = 10
-    random_uvs = [(mp.rand()*2*mp.pi, mp.rand()*2*mp.pi) for i in range(uv_count)]
+    random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(uv_count)]
     # Iterate through different distances to try and find 
     full_results: dict = {}
     passfail_history: list[bool] = []
 
-    epsilons = [power(10, i) for i in range(-20,-12)] #Start with a given series
-    full_results = uvs_normals_by_distances(random_uvs, dists=epsilons, face_outwards=True)
-    passfail_history = [full_results["tt_fail"][i] == 1 for i in range(len(epsilons))]
+    #Start with the given series
+    dist_results = lambda dists: uvs_normals_by_distances(
+        random_uvs, dists=dists, face_outwards=True, 
+        prec=prec, polyn_calc_prec=polyn_calc_prec,
+        verbose=verbose
+    )
+    full_results = dist_results(epsilons)
+    passfail_history = [full_results["tp_mean"][i] is None for i in range(len(epsilons))]
     
+    highest_fail = max([i if not passfail_history[i] else -1 for i in range(len(passfail_history))])
+    after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
+    
+    def insert_results(new_res, idx, full_res, pf_res):
+        new_raws = new_res["raw_results"]
+        new_res["raw_results"] = []
+        # print(to_df(new_res))
+        full_raws = full_res["raw_results"]
+        for i in range(len(full_raws)):
+            full_raws[i] = insert_dict_at_index(full_raws[i], new_raws[i], idx)
+        
+        insert_dict_at_index(full_res, new_res, idx)
+        pf_res[idx:idx] = [new_res["tp_mean"][0] is None]
+
+    insert_results(after_hf, highest_fail+1, full_results, passfail_history)
+
+    # Convergence condition: the result a certain log distance ahead of the largest failure succeeds
+    max_iter = 100
+    c = 0
+    while (not passfail_history[highest_fail+1]) and (c < max_iter):
+        print(f"Iteration {c} complete, further iteration needed.")
+        highest_dist = full_results["dists"][highest_fail+1]
+        next_dist = full_results["dists"][highest_fail+2]
+        betw_dist = mp.sqrt(highest_dist*next_dist)
+        betw_result = dist_results([betw_dist])
+        betw_passfail = betw_result["tp_mean"][0] is None
+
+        insert_results(betw_result, highest_fail+2, full_results, passfail_history)
+
+        if not passfail_history[highest_fail+2]: #The bisection also fails, bisect again above
+            highest_fail += 2
+        else: #The bisection succeeds, so bisect again below
+            highest_fail += 1
+
+        # Check right above it again
+        after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
+        insert_results(after_hf, highest_fail+1, full_results, passfail_history)
+
+        c += 1
+
+    print(" "*20, end="\r")
     full_results["valid"] = passfail_history
     return full_results
 
@@ -89,7 +149,9 @@ def compare_normals_by_distances(
     return_dtb: bool = False,
     return_logs: bool = False,
     result_func: callable = get_first_intersection,
-    face_outwards: bool = False
+    face_outwards: bool = False,
+    polyn_calc_prec: int = None,
+    solver_names: list = ["tt", "tt_hp", "fr", "fr_hp"]
 ) -> dict:
     dists = [mpf(d) for d in dists]
     mp.prec = HIGH_PREC
@@ -102,7 +164,9 @@ def compare_normals_by_distances(
     results = compare_intersections(
         setups,
         base_prec=prec,
-        get_result=result_func
+        get_result=result_func,
+        polyn_calc_prec=polyn_calc_prec,
+        solver_names=solver_names,
     )
     results["dists"] = dists
     return results
@@ -263,82 +327,71 @@ def uvs_normals_by_distances(
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
     prec: int = DOUBLE_PREC,
-    face_outwards: bool = False
+    face_outwards: bool = False,
+    polyn_calc_prec: int = None,
+    solver_code: str = "tt",
+    verbose: bool = False,
+    silent: bool = False,
 ) -> dict:
     result_list = []
     
     for uv in uvs:
         u, v = uv
-        uv_result = compare_normals_by_distances(tor=tor, dists=dists, prec=prec, u=u, v=v, result_func=get_distance, face_outwards=face_outwards)
+        if verbose: print(f"Comparing u: {u}, v: {v}, on distances: {dists}")
+        uv_result = compare_normals_by_distances(
+            tor=tor, dists=dists, prec=prec, 
+            u=u, v=v, result_func=get_distance, 
+            face_outwards=face_outwards, polyn_calc_prec=polyn_calc_prec, 
+            solver_names=[solver_code, f"{solver_code}_hp"])
+        if verbose: print(f"{solver_code} result: {uv_result[solver_code]}, vs {uv_result["dists"]}")
         result_list.append(uv_result)
-        print(f"Rays complete: {len(result_list)}")
-    
-    tt_devs = [] # Compared to the high precision result
-    fr_devs = []
-    tt_means = []
-    fr_means = []
-    tt_stddevs = [] # Compared to the average
-    fr_stddevs = []
+        if verbose: print(f"Rays complete: {len(result_list)}")
+        elif not silent: 
+            print(" "*20, end="\r")
+            print(f"Rays completed: {len(result_list)}", end='\r')
+    tp_devs = [] # Compared to the high precision result
+    tp_means = []
 
-    tt_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
-    fr_failrates = []
+    tp_stddevs = [] # Compared to the average
+    tp_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
+
+    hp_failrates = [] # At each distance, what percentage of high-precision solves failed
 
     for i in range(len(dists)):
-        tt_dev_sum = mpf(0)
-        fr_dev_sum = mpf(0)
-        tt_mean_sum = mpf(0)
-        fr_mean_sum = mpf(0)
+        tp_dev_sum = mpf(0)
+        tp_mean_sum = mpf(0)
     
-        tt_failcount = 0 # Includes hp_failcount for these two
-        fr_failcount = 0
+        tp_failcount = 0 # Includes hp_failcount for these two
         hp_failcount = 0
         for r in result_list:
-            tt_result = r["tt"][i]
-            fr_result = r["fr"][i]
-            hp_result = r["tt_hp"][i]
-            if hp_result is None: hp_result = r["fr_hp"][i]
-            if hp_result is None: #This should be rare but it is possible
-                tt_failcount += 1
-                fr_failcount += 1
+            tp_result = r[solver_code][i]
+            hp_result = r[f"{solver_code}_hp"][i]
+            if hp_result is None:
                 hp_failcount += 1
-                continue
 
-            if not tt_result is None:
-                tt_dev_sum += (tt_result-hp_result)**2
-                tt_mean_sum += tt_result
+            if tp_result is None:
+                tp_failcount += 1
             else:
-                tt_failcount += 1
-
-            if not fr_result is None:
-                fr_dev_sum += (fr_result-hp_result)**2
-                fr_mean_sum += fr_result
-            else:
-                fr_failcount += 1
+                tp_mean_sum += tp_result
+                if not hp_result is None:
+                    tp_dev_sum += (tp_result-hp_result)**2    
         
         uv_count = len(result_list)
-        tt_successes = mpf(uv_count - tt_failcount)
-        tt_mean = None if tt_successes == 0 else tt_mean_sum / tt_successes
-        tt_dev = None if tt_successes == 0 else mp.sqrt(tt_dev_sum / tt_successes)
-        tt_devs.append(tt_dev)
-        tt_means.append(tt_mean)
-        tt_failrates.append(mpf(tt_failcount)/mpf(uv_count))
+        tp_successes = mpf(uv_count - tp_failcount)
+        tp_mean = None if tp_successes == 0 else tp_mean_sum / tp_successes
+        tp_dev = None if tp_successes-hp_failcount == 0 else mp.sqrt(tp_dev_sum / (tp_successes-hp_failcount))
+        tp_devs.append(tp_dev)
+        tp_means.append(tp_mean)
+        tp_failrates.append(mpf(tp_failcount)/mpf(uv_count))
 
-        fr_successes = mpf(uv_count - fr_failcount)
-        fr_mean = None if fr_successes == 0 else fr_mean_sum / fr_successes
-        fr_dev = None if fr_successes == 0 else mp.sqrt(fr_dev_sum / fr_successes)
-        fr_devs.append(fr_dev)
-        fr_means.append(fr_mean)
-        fr_failrates.append(mpf(fr_failcount)/mpf(uv_count))
-    
+        hp_failrates.append(mpf(hp_failcount)/mpf(uv_count))
     return {
         "raw_results":result_list,
         "dists":dists,
-        "tt_mean":tt_means,
-        "tt_dev":tt_devs,
-        "tt_fail":tt_failrates,
-        "fr_mean":fr_means,
-        "fr_dev":fr_devs,
-        "fr_fail":fr_failrates
+        "tp_mean":tp_means,
+        "tp_dev":tp_devs,
+        "tp_fail":tp_failrates,
+        "hp_fail":hp_failrates
     }
 
 
@@ -361,8 +414,9 @@ def compare_intersections(
     get_result: callable = get_first_intersection,
     base_prec: int = DOUBLE_PREC,
     high_prec: int = HIGH_PREC,
+    polyn_calc_prec: int = None, # if given, use this instead of case by case precision
 ) -> dict:
-    solver_precs = [HIGH_PREC if name.endswith("_hp") else DOUBLE_PREC for name in solver_names]
+    solver_precs = [high_prec if name.endswith("_hp") else base_prec for name in solver_names]
     base_names = [name[:-3] if name.endswith("_hp") else name for name in solver_names]
     solver_funcs = [get_solver(name) for name in base_names]
     
@@ -384,6 +438,7 @@ def compare_intersections(
         slv_logs = []
         for setup in setups:
             tor = setup[0]
+            tor._polyn_calc_prec = prec if polyn_calc_prec is None else polyn_calc_prec
             ray_src = setup[1]
             ray_dir = setup[2]
 
@@ -503,7 +558,7 @@ class AlgTracer():
             self._indent -= 1
             content = {
                 "locals": frame.f_locals,
-                "returned": arg
+                "returned": f"{arg}"
             }
         self._logs.append({
             "event": event,
@@ -547,9 +602,9 @@ def insert_dict_at_index(base_dict, insert_dict, idx) -> dict:
     if not all(isinstance(base_dict[k], list) and isinstance(insert_dict[k], list) for k in base_dict):
         raise ValueError(f"Dictionaries must have list data to concatenate with each other. d1: {base_dict}, d2: {insert_dict}")
 
-    new_dict = {}
+    # new_dict = {}
     for key in base_dict:
-        new_dict[key] = base_dict[key].copy()
-        new_dict[key][idx:idx] = insert_dict[key]
+        # base_dict[key] = base_dict[key].copy()
+        base_dict[key][idx:idx] = insert_dict[key]
     
-    return new_dict
+    return base_dict
