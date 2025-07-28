@@ -28,6 +28,8 @@ Purdue University. Graphics Gems II: ISBN 0-12-064481-9, Published 1991 Academic
 type MpfAble = float|int|str|mpf
 # Type hint for either a functor or a string corresponding to one
 type FuncOrName = type|str
+# Tolerance for a ray being normalized (can be this far away from magnitude 1)
+NORMAL_MAGNITUDE_TOLERANCE: mpf = mpmath.power(2, -16)
 
 
 class EllipticToroid:
@@ -56,7 +58,7 @@ class EllipticToroid:
     
     '''
 
-    __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0")
+    __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0", "_polyn_calc_prec")
 
     def __init__(self, tor_rad: MpfAble, hor_rad: MpfAble, ver_rad: MpfAble):
         '''
@@ -94,6 +96,9 @@ class EllipticToroid:
         self._p = (hor_rad*hor_rad) / (ver_rad*ver_rad)
         self._a0 = 4*tor_rad*tor_rad
         self._b0 = tor_rad*tor_rad  - hor_rad*hor_rad
+
+        # Precision to use for finding polynomial
+        self._polyn_calc_prec = 999
 
     @property
     def tor_rad(self) -> mpf:
@@ -135,7 +140,7 @@ class EllipticToroid:
         This list is not guaranteed to be sorted.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(l2norm2(ray_dir), 1): 
+        if not is_one(l2norm2(ray_dir)): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         poly = self._ray_intersection_polynomial(ray_pos, ray_dir)
@@ -170,7 +175,7 @@ class EllipticToroid:
         with this toroid.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(l2norm2(ray_dir), 1): 
+        if not is_one(l2norm2(ray_dir)): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         t_vals = self.ray_intersection_distances(ray_pos, ray_dir, quartic_solver)
@@ -205,7 +210,7 @@ class EllipticToroid:
         
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
-        if not math.isclose(l2norm2(ray_dir), 1): 
+        if not is_one(l2norm2(ray_dir)): 
             raise ValueError(f"ray_dir must have magnitude 1 (Current mag: {mpmath.sqrt(l2norm2(ray_dir))})")
         
         distances = self.ray_intersection_distances(ray_pos, ray_dir, quartic_solver)
@@ -291,15 +296,14 @@ class EllipticToroid:
         [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
         coefficient is always 1.
         '''
-
         prev_prec = mpmath.mp.prec
-        mpmath.mp.prec = 999
+        mpmath.mp.prec = self._polyn_calc_prec
 
         [x0, y0, z0] = to_mpfs(ray_pos)
 
         [ax, ay, az] = to_mpfs(ray_dir)
 
-        assert math.isclose(l2norm2([ax, ay, az]), mpf(1))
+        assert is_one(l2norm2([ax, ay, az]))
 
         # Intermediate terms, from Graphics Gems
         f = 1 - sq(az)
@@ -325,6 +329,18 @@ class EllipticToroid:
         return f"(r: {self.tor_rad}, a: {self.hor_rad}, b: {self.ver_rad})"
 
 # misc util functions
+
+def is_zero(val: mpf, tol: mpf = 0) -> bool:
+    return mpmath.chop(val, tol=mpf(tol)) == mpf(0) 
+
+
+def is_close(val1: mpf, val2: mpf, tol: mpf = 0) -> bool:
+    return is_zero(val1-val2, tol=tol)
+
+
+def is_one(val: mpf, tol: mpf = NORMAL_MAGNITUDE_TOLERANCE) -> bool:
+    return is_close(val, 1, tol=tol)
+
 
 def sq(val: mpf|float) -> mpf|float:
     '''
