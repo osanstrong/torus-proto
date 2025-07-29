@@ -8,7 +8,7 @@ from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
 from numpy import arange
 import pandas as pd
-from mpmath import mpf, matrix, mp, pi, power
+from mpmath import mpf, matrix, mp, pi, power, log
 from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
@@ -20,7 +20,7 @@ import src.quartics.alg1010 as alg1010
 # =-----------=
 
 
-_geab_cache = None
+_geab_cache = {}
 
 
 # =--------------=
@@ -50,9 +50,11 @@ MpfAble: type = mpf|float|str
 
 def graph_eps_avoid_back(
     num_rays: int = 10,
-    use_cache: bool = False #Whether to use the cache data or run calcs all over again from scratch
+    use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch
+    log_resolution = mpf("0.01")
 ):
     ''''''
+    closest_escapes = _geab_cache
     if not use_cache: #If we want to recalculate everything
         uv_pairs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
         solvers = ("tt", "fr")
@@ -61,30 +63,31 @@ def graph_eps_avoid_back(
             "double":DOUBLE_PREC,
             "quad":QUAD_PREC
         }
-        closest_escapes = {}
+        
+        closest_escapes["uv_pairs"] = uv_pairs
+        closest_escapes["solvers"] = solvers
+        closest_escapes["precs"] = precs
+                
         for prec in precs:
             slv_results = [None,]*len(solvers)
             for i in range(len(solvers)):
                 slv_res = epsilon_avoid_backcollision(
                     uv_pairs=uv_pairs, 
                     prec=precs[prec],
-                    solver_code=solvers[i]
+                    solver_code=solvers[i],
+                    log_convergence=log_resolution
                 )
-                closest_escapes[f"{solvers[i]}_full"] = slv_res
+                closest_escapes[f"{solvers[i]}_{prec}_full"] = slv_res
                 last_fail_idx = max([i if not slv_res["valid"][i] else -99999 for i in range(len(slv_res["valid"]))])
                 closest = slv_res["dists"][last_fail_idx+1]
                 slv_results[i] = closest
-            closest_escapes[solvers[i]] = slv_results
-        closest_escapes["solvers"] = solvers
-        closest_escapes["precs"] = precs
-        _geab_cache = closest_escapes
+            closest_escapes[prec] = slv_results
     else:
-        closest_escapes = _geab_cache
         solvers = closest_escapes["solvers"]
         precs = closest_escapes["precs"]
     
     # The actual graphing
-    x = arange(len(solvers)) #Label locations
+    x = arange(len(precs)) #Label locations
     width = 0.25 #Width of bars
 
     fig, ax = plt.subplots(layout='constrained')
@@ -92,13 +95,18 @@ def graph_eps_avoid_back(
         # prec = precs[i]
         slv = solvers[i]
         offset = width*i
-        rects = ax.bar(x+offset, [closest_escapes[prec][i] for prec in precs], width, label=slv)
+        pos = x+offset
+        # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
+        # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
+        rects = ax.bar(pos, [float(-log(closest_escapes[prec][i], b=10)) for prec in precs], width, label=slv)
+        # print(rects[:])
+        print(f"location: {pos}, data: {[closest_escapes[prec][i] for prec in precs]}, width: {width}")
         ax.bar_label(rects, padding=3)
 
     # Add text
-    ax.set_ylabel("Closest safe distance")
-    ax.set_title("Closest escapes with solvers and precisions")
-    ax.set_xticks(x+width, solvers)
+    ax.set_ylabel("Closest escape distance d, -log(d)")
+    ax.set_title(f"Closest safe distances from Toroid 50, 10, 20, for {num_rays} rays with different solvers at different precisions")
+    ax.set_xticks(x+width, precs)
     ax.legend(loc="upper left", ncols=3)
     plt.show()
     # print(_geab_cache)
@@ -114,7 +122,7 @@ def epsilon_avoid_backcollision(
     polyn_calc_prec: int = None,
     solver_code: str = "tt",
     verbose: bool = False,
-):
+) -> dict:
     '''
     How close can a ray start to the surface of a toroid and reliably
     avoid intersecting with it. (While moving away)
@@ -141,7 +149,8 @@ def epsilon_avoid_backcollision(
     dist_results = lambda dists: uvs_normals_by_distances(
         uv_pairs, dists=dists, face_outwards=True, 
         prec=prec, polyn_calc_prec=polyn_calc_prec,
-        verbose=verbose
+        verbose=verbose,
+        solver_code=solver_code
     )
     full_results = dist_results(epsilons)
     passfail_history = [full_results["tp_mean"][i] is None for i in range(len(epsilons))]
@@ -185,6 +194,7 @@ def epsilon_avoid_backcollision(
         insert_results(after_hf, highest_fail+1, full_results, passfail_history)
 
         c += 1
+    print(f"Complete after {c} iterations")
 
     print(" "*20, end="\r")
     full_results["valid"] = passfail_history
