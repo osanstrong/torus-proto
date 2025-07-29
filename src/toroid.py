@@ -4,7 +4,7 @@ import math
 import numpy as np
 from numpy import linalg as la
 import mpmath
-from mpmath import mpf, mpc
+from mpmath import mpf, mpc, matrix
 from src.solvers import calc_real_roots
 
 '''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
@@ -118,11 +118,6 @@ class EllipticToroid:
         '''Solves for intersection distances (aka t-values, where 'end = pos + t*dir') using 
         the given quartic solver, and returns them in a list.
 
-        Returns
-        -------
-        A list of distances along the given ray to its intersections, if any, with this toroid. 
-        This list is not guaranteed to be sorted.
-
         Parameters
         ----------
         ray_pos : Iterable[MpfAble] (length 3)
@@ -133,6 +128,11 @@ class EllipticToroid:
         solve_quartic : Callable[[list[mpf]], Iterable[mpf]]
             A method which takes a quartic polynomial as a list of mpf instances (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
+
+        Returns
+        -------
+        A list of distances along the given ray to its intersections, if any, with this toroid. 
+        This list is not guaranteed to be sorted.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
         if not math.isclose(l2norm2(ray_dir), 1): 
@@ -153,11 +153,6 @@ class EllipticToroid:
         '''Solves for intersection points using the given quartic solver with ray_intersections(), 
         and returns them in a list, sorted by increasing distance.
 
-        Returns
-        -------
-        A list, sorted in increasing distance, of the given ray's intersection points, if any, 
-        with this toroid.
-
         Parameters
         ----------
         ray_pos : Iterable[mpf] (length 3)
@@ -168,6 +163,11 @@ class EllipticToroid:
         solve_quartic : Callable[[list[mpf]], Iterable[mpf]]
             A method which takes a quartic polynomial as a list of mpfs (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
+
+        Returns
+        -------
+        A list, sorted in increasing distance, of the given ray's intersection points, if any, 
+        with this toroid.
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
         if not math.isclose(l2norm2(ray_dir), 1): 
@@ -182,15 +182,9 @@ class EllipticToroid:
         ray_dir: Iterable[mpf],
         # solve_quartic: Callable[[list[mpf]], Iterable[mpf]],
         quartic_solver: FuncOrName
-    ) -> float | None:
+    ) -> mpf | None:
         '''Solves for the distance to the first intersection of the given ray with this torus.
         If no intersection is found, returns None.
-        
-        Returns
-        -------
-        A float value representing the distance to the first intersesction of the given ray with 
-        this torus. Only 'forward' intersections, where distance > 0, will be included.
-        If no such intersections are found, returns None instead.
 
         Parameters
         ----------
@@ -203,6 +197,12 @@ class EllipticToroid:
             A method which takes a quartic polynomial as a list of mpfs (ordered c4, c3 ... c0 
             as returned by ray_intersection_polynomial()), and returns its real roots.
         
+        Returns
+        -------
+        An mpf value representing the distance to the first intersesction of the given ray with 
+        this torus. Only 'forward' intersections, where distance > 0, will be included.
+        If no such intersections are found, returns None instead.
+        
         '''
         if all(comp == 0 for comp in ray_dir): raise ValueError("Ray direction cannot be 0")
         if not math.isclose(l2norm2(ray_dir), 1): 
@@ -213,19 +213,19 @@ class EllipticToroid:
             return None
         return min(distances)
 
-    def surface_normal(self, pos: Iterable[MpfAble]) -> list[mpf]:
+    def surface_normal(self, pos: Iterable[MpfAble]) -> matrix:
         '''Solves for the vector normal to the torus surface at the given x, y, and z, and
         returns an np array containing that vector.
-
-        Returns
-        -------
-        A list of mpfs (length 3) representing the surface normal vector.
 
         Parameters
         ----------
         pos : Iterable[MpfAble], length 3
             The x, y, and z of the position to find a surface vector at. 
             Must be on the surface (point_sense(pos) == 0).
+
+        Returns
+        -------
+        A list of mpfs (length 3) representing the surface normal vector.
         '''
         if not self.point_sense(pos) == 0: raise ValueError("Point must be on surface.")
     
@@ -241,19 +241,20 @@ class EllipticToroid:
         length = mpmath.sqrt(l2norm2(n))
         if length == 0:
             return None
-        return [comp/length for comp in n]
+        return matrix([comp/length for comp in n])
 
     def point_sense(self, pos: Iterable[MpfAble]) -> int:
         '''Evaluates if the given point is inside, outside, or on the toroid surface.
+
+        Parameters
+        ----------
+        pos : Iterable[MpfAble], length 3
+            The x, y, and z of the position to evaluate.
         
         Returns
         -------
         -1 if the point is inside the surface, 0 if the point is exactly on the surface, 
         and 1 if the point is outside of the surface.
-
-        Parameters
-        pos : Iterable[MpfAble], length 3
-            The x, y, and z of the position to evaluate.
         '''
         [x, y, z] = to_mpfs(pos)
 
