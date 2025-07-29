@@ -112,6 +112,22 @@ def graph_eps_avoid_back(
     # print(_geab_cache)
 
 
+# =--------------------------------------------------------=
+# Experimental methods, mostly toying around in this section
+# =--------------------------------------------------------=
+
+
+def get_first_intersection(tor, ray_src, ray_dir, slv):
+    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
+    if inters:
+        return inters[0]
+    else:
+        return None
+
+
+# -----------
+# Comparisons
+# -----------
 
 def epsilon_avoid_backcollision(
     epsilons: list = [power(10, i) for i in [-400,-100,-50,-25,0]],
@@ -126,6 +142,7 @@ def epsilon_avoid_backcollision(
     '''
     How close can a ray start to the surface of a toroid and reliably
     avoid intersecting with it. (While moving away)
+    Iteratively compares different starting distances until it settles on the lowest stable one.
 
     Cases considered for rays normal to the surface, and rays tangential
     to the surface.
@@ -199,24 +216,6 @@ def epsilon_avoid_backcollision(
     print(" "*20, end="\r")
     full_results["valid"] = passfail_history
     return full_results
-
-
-# =--------------------------------------------------------=
-# Experimental methods, mostly toying around in this section
-# =--------------------------------------------------------=
-
-
-def get_first_intersection(tor, ray_src, ray_dir, slv):
-    inters = tor.ray_intersection_points(ray_src, ray_dir, slv)
-    if inters:
-        return inters[0]
-    else:
-        return None
-
-
-# -----------
-# Comparisons
-# -----------
 
 
 # 1: Compare intersection point at different distances for different solvers
