@@ -20,8 +20,10 @@ import src.quartics.alg1010 as alg1010
 # =-----------=
 
 
-_geab_cache = {}
-
+_geab_cache = {} #Do we really need to cache EVERYTHING?
+_exp1_final = {} #Final information about experiment 1, e.g. graphs n stuff
+_dbd_cache = {}
+_exp2_final = {}
 
 # =--------------=
 # Useful constants
@@ -86,6 +88,12 @@ def graph_eps_avoid_back(
         solvers = closest_escapes["solvers"]
         precs = closest_escapes["precs"]
     
+    _exp1_final["solvers"] = solvers
+    _exp1_final["precs"] = precs
+    _exp1_final["uv_pairs"] = [(repr(pair[0]),repr(pair[1])) for pair in closest_escapes["uv_pairs"]]
+    for prec in precs:
+        _exp1_final[prec] = [float(ep) for ep in closest_escapes[prec]]
+
     # The actual graphing
     x = arange(len(precs)) #Label locations
     width = 0.25 #Width of bars
@@ -98,9 +106,9 @@ def graph_eps_avoid_back(
         pos = x+offset
         # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
         # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
-        rects = ax.bar(pos, [float(-log(closest_escapes[prec][i], b=10)) for prec in precs], width, label=slv)
+        rects = ax.bar(pos, [float(-log(_exp1_final[prec][i], b=10)) for prec in precs], width, label=slv)
         # print(rects[:])
-        print(f"location: {pos}, data: {[closest_escapes[prec][i] for prec in precs]}, width: {width}")
+        print(f"location: {pos}, data: {[_exp1_final[prec][i] for prec in precs]}, width: {width}")
         ax.bar_label(rects, padding=3)
 
     # Add text
@@ -110,6 +118,46 @@ def graph_eps_avoid_back(
     ax.legend(loc="upper left", ncols=3)
     plt.show()
     # print(_geab_cache)
+
+
+def graph_dev_by_distance(
+    num_rays: int = 10,
+    dists: list = [10**i for i in range(12)],
+    solvers: list = ["tt", "fr"],
+    precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
+    use_cache: bool = False,
+):
+    if not use_cache:
+        random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        full_res = {}
+        for slv in solvers:
+            full_res[slv] = {}
+            for prec in precs:
+                res = uvs_normals_by_distances(random_uvs, dists=dists, prec=precs[prec], solver_code=slv)
+                full_res[slv][prec] = res
+                _exp2_final[f"{slv}_{prec}"] = {
+                    "mean":res["tp_mean"],
+                    "dev":res["tp_dev"],
+                    "fail":res["tp_fail"]
+                }
+        _dbd_cache.update(full_res)
+        _exp2_final["dists"] = dists
+    # If we are using cache, we just assume those are already in place
+    x = [float(log(d)) for d in dists]
+    _exp2_final["dists"] = [float(d) for d in dists]
+    for slv in solvers:
+        for prec in precs:
+            for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
+                _exp2_final[f"{slv}_{prec}"][dataset] = [float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
+            err = [float(log(n, b=10)) for n in _exp2_final[f"{slv}_{prec}"]["dev"]]
+            plt.plot(x, err, drawstyle='steps-mid', label=f"{slv} at {prec}")
+    plt.legend(title="Solver-precision combo:")
+    plt.xlabel("Log of distance")
+    plt.ylabel("Log of error (deviation, same units as distance)")
+    plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
+    plt.show()
+    
+
 
 
 # =--------------------------------------------------------=
