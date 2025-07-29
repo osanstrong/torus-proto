@@ -156,38 +156,9 @@ def get_donut_hole_ray(
     return ray_src, ray_dir
 
 
-# -------------------------------------------------------------
-# Utility functions to compare solutions from different solvers
-# -------------------------------------------------------------
-
-
-def intersections_by_solver(
-    toroid: EllipticToroid,
-    ray_src: Iterable[mpf], 
-    ray_dir: Iterable[mpf],
-    solvers: list[type|str] = ["Ferrari", "Alg1010"],
-    prec: int = DOUBLE_PREC
-) -> dict:
-    '''
-    Returns a dictionary of intersection results for the given ray torus combination.
-
-    Parameters
-    ----------
-    toroid
-    '''
-    pass
-
-
 # -------------------------------------
 # Other miscellaneous utility functions
 # -------------------------------------
-
-
-def rotation_matrix_3d(
-    axis: Iterable[mpf],
-    theta: mpf
-) -> matrix:
-    pass
 
 
 def points_along_ray(
