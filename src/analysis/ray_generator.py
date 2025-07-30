@@ -9,6 +9,7 @@ Compare:
 from collections.abc import Iterable, Callable
 import numpy as np
 import mpmath
+from mpmath import mp
 from mpmath import mpf, mpc, matrix, cos, sin, sqrt, sign, norm
 from src.toroid import EllipticToroid, sq
 
@@ -49,8 +50,11 @@ def get_normal_ray(
         How far back the ray should start; negative distance means it starts after the surface
     '''
     start = point_on_toroid(toroid, u, v)
+    mp.prec += 200
     ray_dir = -toroid.surface_normal(start)
-    return start - dist*ray_dir, ray_dir
+    start -= dist*ray_dir
+    mp.prec -= 200
+    return start, ray_dir
 
 
 def get_grazing_ray(
@@ -92,6 +96,7 @@ def get_grazing_ray(
     # Find point from uv
     ray_src = point_on_toroid(toroid, u, v)
     # Find normal of that point
+    mp.prec += 200
     srf_nor = toroid.surface_normal(ray_src)
     nor_mag = norm(srf_nor, 2)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
@@ -109,6 +114,7 @@ def get_grazing_ray(
     # Shift in position along epsilon
     if not pos_epsilon is None:
         ray_src += pos_epsilon*matrix(srf_nor)
+    mp.prec -= 200
     return ray_src, graze_dir
 
 
@@ -206,14 +212,17 @@ def point_on_toroid(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
     '''
     Shorthand to find a point on the given torus using parameterized surface coordinates u & v
     '''
+    mp.prec += 100
     r = toroid.tor_rad
     a = toroid.hor_rad
     b = toroid.ver_rad
-    return matrix([
+    point = matrix([
        cos(u) * (r + a*cos(v)),
        sin(u) * (r + a*cos(v)),
        b * sin(v)
     ])
+    mp.prec -= 100
+    return point
 
 
 def uv_norm(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
