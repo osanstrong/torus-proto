@@ -55,6 +55,27 @@ THIN_BAGEL_CM: EllipticToroid = EllipticToroid(2.5, 2, 0.2) #or could make it th
 ITER_TOROID_CM: EllipticToroid = EllipticToroid(6.2, 4.5, 8.75) #Toroid roughly the scale of ITER, though ITER is a different kind
 LHC_TUNNEL_CM: EllipticToroid = EllipticToroid(4.25 * 1_000 * 100, 190, 190) #LHC tunnel because yknow why not
 
+UNIT_TOR = EllipticToroid(1,1,1) #Also critically degenerate, as it would happen
+
+
+# Makes a copy of the given torus, with radii scaled by the specified amounts
+def scaled_copy(tor: EllipticToroid, scales: list[MpfAble]):
+    scales = [mpf(s) for s in scales]
+    return EllipticToroid(
+        tor.tor_rad*scales[0],
+        tor.hor_rad*scales[1],
+        tor.ver_rad*scales[2]
+    )
+
+ITER_SCALED: dict = {
+    "base": ITER_TOROID_CM,
+    "0.1x": scaled_copy(ITER_TOROID_CM, ["0.1",]*3),
+    "10x": scaled_copy(ITER_TOROID_CM, [10,]*3),
+    "r10x": scaled_copy(ITER_TOROID_CM, [10,1,1]),
+    "ra10x": scaled_copy(ITER_TOROID_CM, [10,10,1]),
+    "b10x": scaled_copy(ITER_TOROID_CM, [1,1,10]),
+}
+
 
 # =---------------=
 # Final experiments
@@ -64,18 +85,19 @@ LHC_TUNNEL_CM: EllipticToroid = EllipticToroid(4.25 * 1_000 * 100, 190, 190) #LH
 def graph_eps_avoid_back(
     num_rays: int = 10,
     use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch
-    log_resolution = mpf("0.01")
+    log_resolution = mpf("0.01"),
+    solvers = ("tt", "fr"),
+    precs = {
+        "single":SINGLE_PREC,
+        "double":DOUBLE_PREC,
+        "quad":QUAD_PREC
+    },
+    verbosity = 1,
 ):
     ''''''
     closest_escapes = _geab_cache
     if not use_cache: #If we want to recalculate everything
         uv_pairs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
-        solvers = ("tt", "fr")
-        precs = {
-            "single":SINGLE_PREC,
-            "double":DOUBLE_PREC,
-            "quad":QUAD_PREC
-        }
         
         closest_escapes["uv_pairs"] = uv_pairs
         closest_escapes["solvers"] = solvers
@@ -263,15 +285,16 @@ def graph_dbd_by_toroid(
 
 def graph_escape_by_toroid_random_ranges(
     num_rays: int = 10,
+    raysets: dict[str, Iterable[Iterable[tuple[mpf, mpf]]]] = None, #Override the random ray generation and reuse existing ones. Or set to "cache" to try and find the ones in the cache
     toroids: dict = {
-        "ring":BAND_RING_CM,
+        "ring":BAND_RING_CM, #This one's so small and weird that the given escape distances are actually too big
         "disc":THIN_BAGEL_CM,
         "iter":ITER_TOROID_CM,
         "lhc":LHC_TUNNEL_CM,
     },
     uv_ranges: dict = {
         "outside":[0, 2*mp.pi, -0.1, 1],
-        "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1],
+        # "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
         "top":[0, 2*mp.pi, 0.5*mp.pi-0.1, 0.5*mp.pi+0.1],
         "bottom":[0, 2*mp.pi, 1.5*mp.pi-0.1, 1.5*mp.pi+0.1]
     },
@@ -279,27 +302,47 @@ def graph_escape_by_toroid_random_ranges(
     solver: str = "tt",
     prec: int = DOUBLE_PREC,
     use_cache: bool = False,
+    verbosity: int = 1,
+    log_convergence = mpf("0.01")
 ):
+    start_dists = start_dists.copy()
+    mp.prec = prec
+    start_dists.insert(0,-1)
     if not use_cache:
-        uv_sets = {}
-        for range_name in uv_ranges:
-            uvr = uv_ranges[range_name]
-            random_uvs = [(uvr[0] + (uvr[1]-uvr[0])*mp.rand(), uvr[2] + (uvr[3]-uvr[2])*mp.rand()) for i in range(num_rays)]
-            uv_sets[range_name] = random_uvs
+        if raysets == 'cache':
+            uv_sets = _esct_cache["rays"]
+        elif raysets is None: #Default, generate new rays
+            uv_sets = {}
+
+            for range_name in uv_ranges:
+                uvr = uv_ranges[range_name]
+                random_uvs = [(uvr[0] + (uvr[1]-uvr[0])*mp.rand(), uvr[2] + (uvr[3]-uvr[2])*mp.rand()) for i in range(num_rays)]
+                uv_sets[range_name] = random_uvs
+        else:
+            uv_sets = raysets
 
         _esct_cache["rays"] = uv_sets
         for tor_name in toroids:
             tor = toroids[tor_name]
             for range_name in uv_ranges:
-                res = epsilon_avoid_backcollision(epsilons=start_dists, uv_pairs=uv_sets[range_name], prec=prec, solver_code=solver)
+                print(f"Analyzing toroid {tor_name} for range {range_name}")
+                res = epsilon_avoid_backcollision(
+                    tor=tor,
+                    epsilons=start_dists,
+                    uv_pairs=uv_sets[range_name], 
+                    prec=prec, solver_code=solver,
+                    verbosity=verbosity,
+                    log_convergence=log_convergence,
+                )
                 _esct_cache[f"{tor_name}_{range_name}"] = res
-                last_fail_idx = max([i if not res["valid"][i] else -99999 for i in range(len(res["valid"]))])
-                closest = res["dists"][last_fail_idx+1]
+                NONE_FOUND = -999
+                last_fail_idx = max([i if not res["valid"][i] else NONE_FOUND for i in range(len(res["valid"]))])
+                closest = 10 if last_fail_idx == NONE_FOUND else res["dists"][last_fail_idx+1]
                 _exp3b_final[f"{tor_name}_{range_name}"] = closest
 
     range_names = [rn for rn in uv_ranges]
     tor_names = [tn for tn in toroids]
-    x = arange(len(range_names)) #Label locations
+    x = arange(len(tor_names)) #Label locations
     width = 0.25 #Width of bars
 
     for tor_name in tor_names:
@@ -307,20 +350,20 @@ def graph_escape_by_toroid_random_ranges(
             _exp3b_final[f"{tor_name}_{range_name}"] = float(_exp3b_final[f"{tor_name}_{range_name}"])
 
     fig, ax = plt.subplots(layout='constrained')
-    for i in range(len(tor_names)):
+    for i in range(len(range_names)):
         # prec = precs[i]
-        tor_name = tor_names[i]
+        range_name = range_names[i]
         offset = width*i
         pos = x+offset
-        rects = ax.bar(pos, [float(-log(_exp3b_final[f"{tor_name}_{range_names[j]}"], b=10)) for j in len(range_names)], width, label=f"{tor_name}:{toroids[tor_name]}")
+        rects = ax.bar(pos, [float(-log(_exp3b_final[f"{tor_names[j]}_{range_name}"], b=10)) for j in range(len(tor_names))], width, label=f"{range_name}")
         # print(rects[:])
-        print(f"location: {pos}, data: {[_exp3b_final[f"{tor_name}_{range_names[j]}"] for j in len(range_names)]}, width: {width}")
+        print(f"location: {pos}, data: {[_exp3b_final[f"{tor_names[j]}_{range_name}"] for j in range(len(tor_names))]}, width: {width}")
         ax.bar_label(rects, padding=3)
 
     # Add text
     ax.set_ylabel("Closest escape distance d, -log(d)")
-    ax.set_title(f"Closest safe distances from assorted toroids, for {num_rays} rays each in distinct regions")
-    ax.set_xticks(x+width, precs)
+    ax.set_title(f"Closest safe distances from toroids, for {num_rays} rays each in distinct regions, using {solver} at {prec} prec")
+    ax.set_xticks(x+width, tor_names)
     ax.legend(loc="upper left", ncols=3)
     plt.show()
 
@@ -347,6 +390,7 @@ def get_first_intersection(tor, ray_src, ray_dir, slv):
 # -----------
 
 def epsilon_avoid_backcollision(
+    tor: EllipticToroid = EllipticToroid(50,10,20),
     epsilons: list = [power(10, i) for i in [-400,-100,-50,-25,0]],
     uv_count: int = 10,
     uv_pairs: list = None, #If given specific uv pairs, override random assignment
@@ -369,6 +413,7 @@ def epsilon_avoid_backcollision(
     epsilons : list[mpf]
         The distances away from the torus to test, in ascending order
     '''
+    epsilons = epsilons.copy()
     log_convergence = mp.convert(log_convergence)
     # First, normal rays
     special_uvs = []
@@ -378,68 +423,76 @@ def epsilon_avoid_backcollision(
     # Iterate through different distances to try and find 
     full_results: dict = {}
     passfail_history: list[bool] = []
-
+    print(f"Operating on distances: {epsilons}")
     #Start with the given series
     dist_results = lambda dists: uvs_normals_by_distances(
         uv_pairs, dists=dists, face_outwards=True, 
         prec=prec, polyn_calc_prec=polyn_calc_prec,
         verbosity=verbosity,
-        solver_code=solver_code
+        solver_code=solver_code,
+        tor=tor
     )
+    escaped = lambda result, idx=0: result["tp_mean"][idx] is None
     full_results = dist_results(epsilons)
-    passfail_history = [full_results["tp_mean"][i] is None for i in range(len(epsilons))]
+    passfail_history = [escaped(full_results, i) for i in range(len(epsilons))]
     
     highest_fail = max([i if not passfail_history[i] else -1 for i in range(len(passfail_history))])
-    after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
+    # after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
     
     def insert_results(new_res, idx, full_res, pf_res):
-        # for key in new_res: print(key)
-        # possible_logkeys = ["full_logs", "raw_results"]
-        # logkey = "full_logs"
-        # # for key in possible_logkeys:
-        # #     if key in new_res:
-        # #         logkey = key
-        # new_raws = new_res[logkey]
-        # new_res[logkey] = []
-        # # print(to_df(new_res))
-        # full_raws = full_res[logkey]
-        # for i in range(len(full_raws)):
-        #     full_raws[i] = insert_dict_at_index(full_raws[i], new_raws[i], idx)
-
         insert_dict_at_index(full_res, new_res, idx)
-        pf_res[idx:idx] = [new_res["tp_mean"][0] is None]
+        pf_res[idx:idx] = [escaped(new_res)]
 
-    insert_results(after_hf, highest_fail+1, full_results, passfail_history)
+    # insert_results(after_hf, highest_fail+1, full_results, passfail_history)
 
     # Convergence condition: the result a certain log distance ahead of the largest failure succeeds
     max_iter = 100
     c = 0
-    while (not passfail_history[highest_fail+1]) and (c < max_iter):
-        highest_dist = full_results["dists"][highest_fail+1]
-        print(f"Iteration {c} complete after dist {highest_dist}, further iteration needed.")
-        if (highest_fail+2 >= len(full_results["dists"])): #biggest, go a little bigger
-            next_dist = full_results["dists"][highest_fail+1]*power(10, log_convergence)
-        else:
-            next_dist = full_results["dists"][highest_fail+2]
+    converge_ratio = power(10, log_convergence) #Required ratio between the highest failing epsilon and the next epsilon higher (first guaranteed success)
+    while (full_results["dists"][highest_fail+1]/full_results["dists"][highest_fail] > converge_ratio) and (c < max_iter):
+        highest_dist = full_results["dists"][highest_fail]
+        next_dist = full_results["dists"][highest_fail+1]
+        if verbosity >= 0: print(f"Iteration {c} complete after dist {highest_dist}, further iteration needed.")
+        if verbosity >= 1: mp.prec=prec;print(to_df(full_results))
+
         betw_dist = mp.sqrt(highest_dist*next_dist)
         betw_result = dist_results([betw_dist])
-        betw_passfail = betw_result["tp_mean"][0] is None
 
-        insert_results(betw_result, highest_fail+2, full_results, passfail_history)
-
-        if not passfail_history[highest_fail+2]: #The bisection also fails, bisect again above
-            highest_fail += 2
-        else: #The bisection succeeds, so bisect again below
+        insert_results(betw_result, highest_fail+1, full_results, passfail_history)
+        if not escaped(betw_result): #If the bisection also fails, next bisection goes above it
             highest_fail += 1
 
-        # Check right above it again
-        after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
-        insert_results(after_hf, highest_fail+1, full_results, passfail_history)
+
+        
+    # while (not passfail_history[highest_fail+1]) and (c < max_iter):
+    #     highest_dist = full_results["dists"][highest_fail+1]
+    #     if verbosity >= 0: print(f"Iteration {c} complete after dist {highest_dist}, further iteration needed.")
+    #     if verbosity >= 1: mp.prec=prec;print(to_df(full_results))
+
+    #     if (highest_fail+2 >= len(full_results["dists"])): #biggest, go a little bigger
+    #         next_dist = full_results["dists"][highest_fail+1]*power(10, log_convergence)
+    #     else:
+    #         next_dist = full_results["dists"][highest_fail+2]
+    #     betw_dist = mp.sqrt(highest_dist*next_dist)
+    #     betw_result = dist_results([betw_dist])
+    #     betw_passfail = escaped(betw_result)
+
+    #     insert_results(betw_result, highest_fail+2, full_results, passfail_history)
+
+    #     if not passfail_history[highest_fail+2]: #The bisection also fails, bisect again above
+    #         highest_fail += 2
+    #     else: #The bisection succeeds, so bisect again below
+    #         highest_fail += 1
+
+    #     # Check right above it again
+    #     after_hf = dist_results([full_results["dists"][highest_fail]*power(10, log_convergence)])
+    #     insert_results(after_hf, highest_fail+1, full_results, passfail_history)
 
         c += 1
-    print(f"Complete after {c} iterations")
-
-    print(" "*20, end="\r")
+    if verbosity >= 0:
+        print(f"Complete after {c} iterations")
+        print(" "*20, end="\r")
+    if verbosity >= 1: mp.prec=prec;print(to_df(full_results))
     full_results["valid"] = passfail_history
     return full_results
 
@@ -658,7 +711,9 @@ def uvs_normals_by_distances(
 ) -> dict:
     result_list = []
 
-    raysets = [[rg.get_normal_ray(tor, uv[0], uv[1]*(-1 if face_outwards else 1), d) for uv in uvs] for d in dists]
+    raysets = [[rg.get_normal_ray(tor, uv[0], uv[1], d) for uv in uvs] for d in dists]
+    if face_outwards:
+        raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
     full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity)
     full_res["dists"] = dists
     return full_res
