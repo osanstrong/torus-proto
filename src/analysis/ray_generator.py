@@ -24,6 +24,7 @@ DOUBLE_PREC: int = 53
 QUAD_PREC: int = 113
 HIGH_PREC: int = 999
 
+RAY_GENERATION_PRECBOOST = 200
 
 # ------------------------------------------------------------
 # Utility functions to generate notable kinds of rays
@@ -50,10 +51,10 @@ def get_normal_ray(
         How far back the ray should start; negative distance means it starts after the surface
     '''
     start = point_on_toroid(toroid, u, v)
-    mp.prec += 200
+    mp.prec += RAY_GENERATION_PRECBOOST
     ray_dir = -toroid.surface_normal(start)
     start -= dist*ray_dir
-    mp.prec -= 200
+    mp.prec -= RAY_GENERATION_PRECBOOST
     return start, ray_dir
 
 
@@ -96,7 +97,7 @@ def get_grazing_ray(
     # Find point from uv
     ray_src = point_on_toroid(toroid, u, v)
     # Find normal of that point
-    mp.prec += 200
+    mp.prec += RAY_GENERATION_PRECBOOST
     srf_nor = toroid.surface_normal(ray_src)
     nor_mag = norm(srf_nor, 2)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
@@ -114,7 +115,7 @@ def get_grazing_ray(
     # Shift in position along epsilon
     if not pos_epsilon is None:
         ray_src += pos_epsilon*matrix(srf_nor)
-    mp.prec -= 200
+    mp.prec -= RAY_GENERATION_PRECBOOST
     return ray_src, graze_dir
 
 
@@ -146,8 +147,7 @@ def get_donut_hole_ray(
     v = mpmath.pi - mpmath.acos(a / r)
     surf_point, ray_dir = get_grazing_ray(toroid, u = u, v = v)
     mag0 = norm(ray_dir, 2)
-    prev = mpmath.mp.prec
-    mpmath.mp.prec = 999
+    mp.prec += RAY_GENERATION_PRECBOOST
     if not ang_epsilon is None:
         dx, dy, dz = ray_dir
         dr = sqrt(sq(dx) + sq(dy))
@@ -157,7 +157,7 @@ def get_donut_hole_ray(
             dy * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
             dz*cos(ang_epsilon) - dr*sin(ang_epsilon)
         ])
-    mpmath.mp.prec = prev
+    mpmath.mp.prec -= RAY_GENERATION_PRECBOOST
     ray_src = 0 - distance*ray_dir
     mag = norm(ray_dir, 2)
     return ray_src, ray_dir
