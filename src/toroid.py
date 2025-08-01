@@ -275,7 +275,7 @@ class EllipticToroid:
         else: return -1
 
     def _ray_intersection_polynomial(
-        self, ray_pos: Iterable[MpfAble], ray_dir: Iterable[MpfAble]
+        self, ray_pos: Iterable[MpfAble], ray_dir: Iterable[MpfAble], polyn_calc_prec: int = None
     ) -> list[mpf]:
         '''Finds the coefficients of a polynomial representing the given ray's intersection 
         with this torus. The real roots, if any, of this polynomial represent distances along
@@ -296,8 +296,9 @@ class EllipticToroid:
         [c4, c3, c2, c1, c0] where the polynomial would be written c4x^4, c3x^3, ..., c0. The first
         coefficient is always 1.
         '''
-        prev_prec = mpmath.mp.prec
-        mpmath.mp.prec = self._polyn_calc_prec
+        if not polyn_calc_prec is None:
+            prev_prec = mpmath.mp.prec
+            mpmath.mp.prec = polyn_calc_prec
 
         [x0, y0, z0] = to_mpfs(ray_pos)
 
@@ -322,7 +323,7 @@ class EllipticToroid:
         c1 = 2*m*u - q*l
         c0 = sq(u) - q*t
 
-        mpmath.mp.prec = prev_prec
+        if not polyn_calc_prec is None: mpmath.mp.prec = prev_prec
         return [c4, c3, c2, c1, c0]
 
     def __repr__(self) -> str:
