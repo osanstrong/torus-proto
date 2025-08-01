@@ -70,10 +70,39 @@ def scaled_copy(tor: EllipticToroid, scales: list[MpfAble]):
 ITER_SCALED: dict = {
     "base": ITER_TOROID_CM,
     "0.1x": scaled_copy(ITER_TOROID_CM, ["0.1",]*3),
+    "0.01x": scaled_copy(ITER_TOROID_CM, ["0.01",]*3),
     "10x": scaled_copy(ITER_TOROID_CM, [10,]*3),
+    "100x": scaled_copy(ITER_TOROID_CM, [100,]*3),
+    # "r0.1x": scaled_copy(ITER_TOROID_CM, [0.1,1,1]), # These ones are degenerate whoops
+    # "r0.01x": scaled_copy(ITER_TOROID_CM, [0.01,1,1]),
+    "ra0.1x": scaled_copy(ITER_TOROID_CM, [0.1,0.1,1]),
+    "ra0.01x": scaled_copy(ITER_TOROID_CM, [0.01,0.01,1]),
+    "b0.1x": scaled_copy(ITER_TOROID_CM, [1,1,0.1]),
+    "b0.01x": scaled_copy(ITER_TOROID_CM, [1,1,0.01]),
     "r10x": scaled_copy(ITER_TOROID_CM, [10,1,1]),
+    "r100x": scaled_copy(ITER_TOROID_CM, [100,1,1]),
     "ra10x": scaled_copy(ITER_TOROID_CM, [10,10,1]),
+    "ra100x": scaled_copy(ITER_TOROID_CM, [100,100,1]),
     "b10x": scaled_copy(ITER_TOROID_CM, [1,1,10]),
+    "b100x": scaled_copy(ITER_TOROID_CM, [1,1,100]),
+}
+
+SOME_ITER_SCALED: dict = {
+    "base": ITER_TOROID_CM,
+    "0.1x": scaled_copy(ITER_TOROID_CM, ["0.1",]*3),
+    "0.01x": scaled_copy(ITER_TOROID_CM, ["0.01",]*3),
+    "10x": scaled_copy(ITER_TOROID_CM, [10,]*3),
+    "100x": scaled_copy(ITER_TOROID_CM, [100,]*3),
+}
+
+BASIC_RANGES: dict = {
+    "outside":[0, 2*mp.pi, -0.1, 1],
+    # "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
+    "top":[0, 2*mp.pi, 0.5*mp.pi-0.1, 0.5*mp.pi+0.1],
+    "bottom":[0, 2*mp.pi, 1.5*mp.pi-0.1, 1.5*mp.pi+0.1],
+    "diag_top":[0, 2*mp.pi, 0.25*mp.pi-0.1, 0.25*mp.pi+0.1],
+    "diag_bottom":[0, 2*mp.pi, 1.75*mp.pi-0.1, 1.75*mp.pi+0.1],
+    "full_outside":[0, 2*mp.pi, 1.5*mp.pi, 2.5*mp.pi],
 }
 
 
@@ -305,12 +334,21 @@ def graph_escape_by_toroid_random_ranges(
     verbosity: int = 1,
     log_convergence = mpf("0.01")
 ):
+    og_params = locals()
+    _esct_cache["params"]=og_params
+    _exp3b_final["params"]=og_params
     start_dists = start_dists.copy()
     mp.prec = prec
     start_dists.insert(0,-1)
     if not use_cache:
         if raysets == 'cache':
-            uv_sets = _esct_cache["rays"]
+            uv_sets = deepcopy(_esct_cache["rays"])
+        elif raysets == 'cachefill': #Niche: keep existing rays but add however many more are necessary to meet ray quota
+            uv_sets = deepcopy(_esct_cache["rays"])
+            for range_name in uv_ranges:
+                uvr = uv_ranges[range_name]
+                newrand_uvs = [(uvr[0] + (uvr[1]-uvr[0])*mp.rand(), uvr[2] + (uvr[3]-uvr[2])*mp.rand()) for i in range(num_rays-len(uv_sets[range_name]))]
+                uv_sets[range_name].extend(newrand_uvs)
         elif raysets is None: #Default, generate new rays
             uv_sets = {}
 
@@ -318,10 +356,13 @@ def graph_escape_by_toroid_random_ranges(
                 uvr = uv_ranges[range_name]
                 random_uvs = [(uvr[0] + (uvr[1]-uvr[0])*mp.rand(), uvr[2] + (uvr[3]-uvr[2])*mp.rand()) for i in range(num_rays)]
                 uv_sets[range_name] = random_uvs
+        elif isinstance(raysets, dict):
+            uv_sets = deepcopy(raysets)
         else:
-            uv_sets = raysets
+            raise ValueError(f"Unknown raysets provided of {raysets}")
 
         _esct_cache["rays"] = uv_sets
+        print(toroids)
         for tor_name in toroids:
             tor = toroids[tor_name]
             for range_name in uv_ranges:
@@ -343,7 +384,7 @@ def graph_escape_by_toroid_random_ranges(
     range_names = [rn for rn in uv_ranges]
     tor_names = [tn for tn in toroids]
     x = arange(len(tor_names)) #Label locations
-    width = 0.25 #Width of bars
+    width = 1.0/float(1+len(range_names)) #Width of bars
 
     for tor_name in tor_names:
         for range_name in range_names: #Convert to floats for serializability
@@ -718,66 +759,66 @@ def uvs_normals_by_distances(
     full_res["dists"] = dists
     return full_res
     
-    for uv in uvs:
-        u, v = uv
-        if verbose: print(f"Comparing u: {u}, v: {v}, on distances: {dists}")
-        uv_result = compare_normals_by_distances(
-            tor=tor, dists=dists, prec=prec, 
-            u=u, v=v, result_func=get_distance, 
-            face_outwards=face_outwards, polyn_calc_prec=polyn_calc_prec, 
-            solver_names=[solver_code, f"{solver_code}_hp"])
-        if verbose: print(f"{solver_code} result: {uv_result[solver_code]}, vs {uv_result["dists"]}")
-        result_list.append(uv_result)
-        if verbose: print(f"Rays complete: {len(result_list)}")
-        elif not silent: 
-            print(" "*20, end="\r")
-            print(f"Rays completed: {len(result_list)}", end='\r')
-    tp_devs = [] # Compared to the high precision result
-    tp_means = []
+    # for uv in uvs:
+    #     u, v = uv
+    #     if verbose: print(f"Comparing u: {u}, v: {v}, on distances: {dists}")
+    #     uv_result = compare_normals_by_distances(
+    #         tor=tor, dists=dists, prec=prec, 
+    #         u=u, v=v, result_func=get_distance, 
+    #         face_outwards=face_outwards, polyn_calc_prec=polyn_calc_prec, 
+    #         solver_names=[solver_code, f"{solver_code}_hp"])
+    #     if verbose: print(f"{solver_code} result: {uv_result[solver_code]}, vs {uv_result["dists"]}")
+    #     result_list.append(uv_result)
+    #     if verbose: print(f"Rays complete: {len(result_list)}")
+    #     elif not silent: 
+    #         print(" "*20, end="\r")
+    #         print(f"Rays completed: {len(result_list)}", end='\r')
+    # tp_devs = [] # Compared to the high precision result
+    # tp_means = []
 
-    tp_stddevs = [] # Compared to the average
-    tp_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
+    # tp_stddevs = [] # Compared to the average
+    # tp_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
 
-    hp_failrates = [] # At each distance, what percentage of high-precision solves failed
+    # hp_failrates = [] # At each distance, what percentage of high-precision solves failed
 
-    for i in range(len(dists)):
-        tp_dev_sum = mpf(0)
-        tp_mean_sum = mpf(0)
+    # for i in range(len(dists)):
+    #     tp_dev_sum = mpf(0)
+    #     tp_mean_sum = mpf(0)
     
-        tp_failcount = 0 # Includes hp_failcount for these two
-        hp_failcount = 0
-        both_succeedcount = 0
-        for r in result_list:
-            tp_result = r[solver_code][i]
-            hp_result = r[f"{solver_code}_hp"][i]
-            if hp_result is None:
-                hp_failcount += 1
+    #     tp_failcount = 0 # Includes hp_failcount for these two
+    #     hp_failcount = 0
+    #     both_succeedcount = 0
+    #     for r in result_list:
+    #         tp_result = r[solver_code][i]
+    #         hp_result = r[f"{solver_code}_hp"][i]
+    #         if hp_result is None:
+    #             hp_failcount += 1
 
-            if tp_result is None:
-                tp_failcount += 1
-            else:
-                tp_mean_sum += tp_result
-                if not hp_result is None:
-                    both_succeedcount += 1
-                    tp_dev_sum += (tp_result-hp_result)**2    
+    #         if tp_result is None:
+    #             tp_failcount += 1
+    #         else:
+    #             tp_mean_sum += tp_result
+    #             if not hp_result is None:
+    #                 both_succeedcount += 1
+    #                 tp_dev_sum += (tp_result-hp_result)**2    
         
-        uv_count = len(result_list)
-        tp_successes = mpf(uv_count - tp_failcount)
-        tp_mean = None if tp_successes == 0 else tp_mean_sum / tp_successes
-        tp_dev = None if tp_successes-hp_failcount == 0 else mp.sqrt(tp_dev_sum / mpf(both_succeedcount))
-        tp_devs.append(tp_dev)
-        tp_means.append(tp_mean)
-        tp_failrates.append(mpf(tp_failcount)/mpf(uv_count))
+    #     uv_count = len(result_list)
+    #     tp_successes = mpf(uv_count - tp_failcount)
+    #     tp_mean = None if tp_successes == 0 else tp_mean_sum / tp_successes
+    #     tp_dev = None if tp_successes-hp_failcount == 0 else mp.sqrt(tp_dev_sum / mpf(both_succeedcount))
+    #     tp_devs.append(tp_dev)
+    #     tp_means.append(tp_mean)
+    #     tp_failrates.append(mpf(tp_failcount)/mpf(uv_count))
 
-        hp_failrates.append(mpf(hp_failcount)/mpf(uv_count))
-    return {
-        "raw_results":result_list,
-        "dists":dists,
-        "tp_mean":tp_means,
-        "tp_dev":tp_devs,
-        "tp_fail":tp_failrates,
-        "hp_fail":hp_failrates
-    }
+    #     hp_failrates.append(mpf(hp_failcount)/mpf(uv_count))
+    # return {
+    #     "raw_results":result_list,
+    #     "dists":dists,
+    #     "tp_mean":tp_means,
+    #     "tp_dev":tp_devs,
+    #     "tp_fail":tp_failrates,
+    #     "hp_fail":hp_failrates
+    # }
 
 
 
@@ -839,10 +880,16 @@ def compare_raysets_vs_hp(
             tracer.begin()
             mp.prec = target_prec
             tp_dtb = toroid.distance_to_boundary(ray[0], ray[1], solver)
+            # print(f"Testing precision: {mp.prec} (should be {target_prec})")
+            tracer.end()
+            target_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
+            tracer.begin()
             mp.prec = high_prec
             hp_dtb = toroid.distance_to_boundary(ray[0], ray[1], solver)
             tracer.end()
-            logs.append(tracer.simple_logstring())
+            high_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
+
+            logs.append(f"{target_log}\n{high_log}")
 
             tp_fail = is_failure(tp_dtb, set_idx, ray_idx)
             hp_fail = is_failure(hp_dtb, set_idx, ray_idx)
@@ -1078,3 +1125,24 @@ def insert_dict_at_index(base_dict, insert_dict, idx) -> dict:
         base_dict[key][idx:idx] = insert_dict[key]
     
     return base_dict
+
+
+# Returns a nested copy of the given dictionary/list combination. Currently only operates on dicts and lists
+def deepcopy(item):
+    if isinstance(item, dict):
+        new_dict = {}
+        for key in item:
+            new_dict[key] = deepcopy(item[key])
+        return new_dict
+    elif isinstance(item, list):
+        return [deepcopy(n) for n in item]
+    else:
+        return item
+
+
+# Returns a new set of random uvs in the given range
+def random_uvs(uv_range: list[MpfAble], num_rays: int) -> list[tuple[mpf, mpf]]:
+    return [(uv_range[0] + mp.rand()*(uv_range[1]-uv_range[0]), uv_range[2] + mp.rand()*(uv_range[3]-uv_range[2])) for i in range(num_rays)]
+
+
+# Returns sets of random uvs 
