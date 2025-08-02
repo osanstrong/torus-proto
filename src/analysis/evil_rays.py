@@ -95,6 +95,21 @@ SOME_ITER_SCALED: dict = {
     "100x": scaled_copy(ITER_TOROID_CM, [100,]*3),
 }
 
+KNOWN_TORII_CM: dict = {
+    "jet_plasma": EllipticToroid(300, 125, 200),
+    "inner_dune_fsc": EllipticToroid("2.3", 0.5, 0.5),
+    "outer_dune_fsc": EllipticToroid("2.3", "2.285", "2.285"),
+    "lz_pmtConduitBend": EllipticToroid("37.5", "109.6", "109.6"),
+    "lz_thermoConduitBend": EllipticToroid(25, 8, 8),
+    "xlzd_0x1c60140": EllipticToroid("141.699993610382", "37.2999995946884","37.2999995946884"),
+    "inner_xlzd_0x1ccaf60": EllipticToroid("141.699993610382", "35.7999980449677", "357.999980449677"),
+    "xlzd_0x1c8eef0": EllipticToroid("126.199996471405", "33.799996972084", "33.799996972084"),
+    "outer_xlzd_0x1cc8960": EllipticToroid("123.259997367859", "32.9399973154068","329.399973154068"),
+    "inner_xlzd_0x1cc8960": EllipticToroid("1232.59997367859", "312.399983406067","312.399983406067"),
+    "outer_xlzd_0x1cc75a0": EllipticToroid("1276.39997005463", "341.599971055984", "341.599971055984"),
+    "inner_xlzd_0x1cc75a0": EllipticToroid("1276.39997005463", "323.599994182587", "323.599994182587"),
+}
+
 BASIC_RANGES: dict = {
     "outside":[0, 2*mp.pi, -0.1, 1],
     # "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
@@ -295,7 +310,7 @@ def graph_dbd_by_toroid(
             }
             print(" "*40, end="\r")
             print(f"Toroid {tor_name} complete")
-        _dbdg_cache.update(full_res)
+        _dbdt_cache.update(full_res)
         _exp3_final["dists"] = dists
     # If we are using cache, we just assume those are already in place
     x = [float(log(d)) for d in dists]
