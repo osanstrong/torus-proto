@@ -4,7 +4,8 @@ import math
 import numpy as np
 from numpy import linalg as la
 import mpmath
-from mpmath import mpf, mpc, matrix
+from mpmath import mpf, mpc, matrix, mp
+from src.prec_util import mp_const
 from src.solvers import calc_real_roots
 
 '''A module for modeling Elliptic Toroid surfaces for ray tracing-like applications, 
@@ -76,9 +77,9 @@ class EllipticToroid:
         When inputting non-binary fractions/decimals, either mpf or str instances may be preferred
         to maintain higher precision
         '''
-        tor_rad = mpf(tor_rad)
-        hor_rad = mpf(hor_rad)
-        ver_rad = mpf(ver_rad)
+        tor_rad = mp_const(tor_rad, reduced_prec=23)
+        hor_rad = mp_const(hor_rad, reduced_prec=23)
+        ver_rad = mp_const(ver_rad, reduced_prec=23)
 
         if not tor_rad > 0: 
             raise ValueError(f"Toroid radius must be greater than 0 (tor_rad={tor_rad})")

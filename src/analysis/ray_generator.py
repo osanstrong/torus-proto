@@ -10,7 +10,8 @@ from collections.abc import Iterable, Callable
 import numpy as np
 import mpmath
 from mpmath import mp
-from mpmath import mpf, mpc, matrix, cos, sin, sqrt, sign, norm
+from mpmath import mpf, mpc, matrix, cospi, sinpi, sqrt, sign, norm
+from src.prec_util import mp_const
 from src.toroid import EllipticToroid, sq
 
 # ---------
@@ -102,11 +103,11 @@ def get_grazing_ray(
     nor_mag = norm(srf_nor, 2)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
     x, y, z = srf_nor
-    r = sqrt(sq(x) + sq(y)) * -sign(cos(v)) # If the vector is on 'hole' of donut, r is negative
+    r = sqrt(sq(x) + sq(y)) * -sign(cospi(v)) # If the vector is on 'hole' of donut, r is negative
     zr = z/r
     graze_dir = matrix([x*zr, y*zr, -r])
     graze_mag = norm(graze_dir, 2)
-    if sin(v) > 0: # If the vector is on 'topside', flip so that the ray is always approaching the z axis
+    if sinpi(v) > 0: # If the vector is on 'topside', flip so that the ray is always approaching the z axis
         graze_dir *= 1
     # If required, rotate that vector by yaw
     # Find a point along the ray such that traveling distance from that point along the way arrives at the point
@@ -153,9 +154,9 @@ def get_donut_hole_ray(
         dr = sqrt(sq(dx) + sq(dy))
         zr = dz/dr
         ray_dir = matrix([
-            dx * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
-            dy * (cos(ang_epsilon) + zr*sin(ang_epsilon)),
-            dz*cos(ang_epsilon) - dr*sin(ang_epsilon)
+            dx * (cospi(ang_epsilon) + zr*sinpi(ang_epsilon)),
+            dy * (cospi(ang_epsilon) + zr*sinpi(ang_epsilon)),
+            dz*cospi(ang_epsilon) - dr*sinpi(ang_epsilon)
         ])
     mpmath.mp.prec -= RAY_GENERATION_PRECBOOST
     ray_src = 0 - distance*ray_dir
@@ -216,11 +217,11 @@ def point_on_toroid(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
     r = toroid.tor_rad
     a = toroid.hor_rad
     b = toroid.ver_rad
-    point = matrix([
-       cos(u) * (r + a*cos(v)),
-       sin(u) * (r + a*cos(v)),
-       b * sin(v)
-    ])
+    point = matrix([mp_const(n) for n in [
+       cospi(u) * (r + a*cospi(v)),
+       sinpi(u) * (r + a*cospi(v)),
+       b * sinpi(v)
+    ]])
     mp.prec -= 100
     return point
 

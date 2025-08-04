@@ -13,6 +13,7 @@ from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
 import src.quartics.alg1010 as alg1010
+from src.prec_util import mp_const
 
 
 # =-----------=
@@ -99,25 +100,25 @@ KNOWN_TORII_CM: dict = {
     "jet_plasma": EllipticToroid(300, 125, 200),
     "inner_dune_fsc": EllipticToroid("2.3", 0.5, 0.5),
     "outer_dune_fsc": EllipticToroid("2.3", "2.285", "2.285"),
-    "lz_pmtConduitBend": EllipticToroid("37.5", "109.6", "109.6"),
+    "lz_pmtConduitBend": EllipticToroid("37.5", "10.96", "10.96"),
     "lz_thermoConduitBend": EllipticToroid(25, 8, 8),
     "xlzd_0x1c60140": EllipticToroid("141.699993610382", "37.2999995946884","37.2999995946884"),
-    "inner_xlzd_0x1ccaf60": EllipticToroid("141.699993610382", "35.7999980449677", "357.999980449677"),
+    "inner_xlzd_0x1ccaf60": EllipticToroid("141.699993610382", "35.7999980449677", "35.7999980449677"),
     "xlzd_0x1c8eef0": EllipticToroid("126.199996471405", "33.799996972084", "33.799996972084"),
     "outer_xlzd_0x1cc8960": EllipticToroid("123.259997367859", "32.9399973154068","329.399973154068"),
-    "inner_xlzd_0x1cc8960": EllipticToroid("1232.59997367859", "312.399983406067","312.399983406067"),
-    "outer_xlzd_0x1cc75a0": EllipticToroid("1276.39997005463", "341.599971055984", "341.599971055984"),
-    "inner_xlzd_0x1cc75a0": EllipticToroid("1276.39997005463", "323.599994182587", "323.599994182587"),
+    "inner_xlzd_0x1cc8960": EllipticToroid("123.259997367859", "31.2399983406067","31.2399983406067"),
+    "outer_xlzd_0x1cc75a0": EllipticToroid("127.639997005463", "34.1599971055984", "34.1599971055984"),
+    "inner_xlzd_0x1cc75a0": EllipticToroid("127.639997005463", "32.3599994182587", "32.3599994182587"),
 }
 
 BASIC_RANGES: dict = {
-    "outside":[0, 2*mp.pi, -0.1, 1],
-    # "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
-    "top":[0, 2*mp.pi, 0.5*mp.pi-0.1, 0.5*mp.pi+0.1],
-    "bottom":[0, 2*mp.pi, 1.5*mp.pi-0.1, 1.5*mp.pi+0.1],
-    "diag_top":[0, 2*mp.pi, 0.25*mp.pi-0.1, 0.25*mp.pi+0.1],
-    "diag_bottom":[0, 2*mp.pi, 1.75*mp.pi-0.1, 1.75*mp.pi+0.1],
-    "full_outside":[0, 2*mp.pi, 1.5*mp.pi, 2.5*mp.pi],
+    "outside":[0, 2, -0.1, 1],
+    # "inside":[0, 2, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
+    "top":[0, 2, 0.5-0.1, 0.5+0.1],
+    "bottom":[0, 2, 1.5-0.1, 1.5+0.1],
+    "diag_top":[0, 2, 0.25-0.1, 0.25+0.1],
+    "diag_bottom":[0, 2, 1.75-0.1, 1.75+0.1],
+    "full_outside":[0, 2, 1.5, 2.5],
 }
 
 
@@ -141,7 +142,9 @@ def graph_eps_avoid_back(
     ''''''
     closest_escapes = _geab_cache
     if not use_cache: #If we want to recalculate everything
-        uv_pairs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        mp.prec += 200
+        uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+        mp.prec -= 200
         
         closest_escapes["uv_pairs"] = uv_pairs
         closest_escapes["solvers"] = solvers
@@ -205,7 +208,7 @@ def graph_dev_by_distance(
     use_cache: bool = False,
 ):
     if not use_cache:
-        random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        random_uvs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
         full_res = {}
         for slv in solvers:
             full_res[slv] = {}
@@ -247,7 +250,7 @@ def graph_dev_by_distance_graze(
     dist_coords = [(d, surf_dist) for d in dists]
     hole_radius = tor.tor_rad - tor.hor_rad
     if not use_cache:
-        random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        random_uvs = [(mp.rand()*2, (mp.rand()+1.5)) for i in range(num_rays)]
         full_res = {}
         for slv in solvers:
             full_res[slv] = {}
@@ -296,7 +299,7 @@ def graph_dbd_by_toroid(
     use_cache: bool = False,
 ):
     if not use_cache:
-        random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(num_rays)]
+        random_uvs = [(mp.rand()*2, (mp.rand()+1.5)) for i in range(num_rays)]
         full_res = {}
         for tor_name in toroids:
             tor = toroids[tor_name]
@@ -337,10 +340,10 @@ def graph_escape_by_toroid_random_ranges(
         "lhc":LHC_TUNNEL_CM,
     },
     uv_ranges: dict = {
-        "outside":[0, 2*mp.pi, -0.1, 1],
-        # "inside":[0, 2*mp.pi, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
-        "top":[0, 2*mp.pi, 0.5*mp.pi-0.1, 0.5*mp.pi+0.1],
-        "bottom":[0, 2*mp.pi, 1.5*mp.pi-0.1, 1.5*mp.pi+0.1]
+        "outside":[0, 2, -0.1, 1],
+        # "inside":[0, 2, mp.pi-0.1, mp.pi+0.1], #Revisit once we get a check on 
+        "top":[0, 2, 0.5-0.1, 0.5+0.1],
+        "bottom":[0, 2, 1.5-0.1, 1.5+0.1]
     },
     start_dists: list = [power(10,i) for i in [-300,-40,-0.01, 10]],
     solver: str = "tt",
@@ -445,6 +448,76 @@ def get_first_intersection(tor, ray_src, ray_dir, slv):
 # Comparisons
 # -----------
 
+def singuv_epsilon_avoid_backcollision(
+    tor: EllipticToroid,
+    uv: tuple[mpf, mpf],
+    epsilons: list = [mp_const(f"1e{i}") for i in [-400, -300,0]],
+    prec: int = DOUBLE_PREC,
+    solver_code: str = "tt",
+    log_convergence: MpfAble = "0.1",
+    verbosity: int = 1,
+    avoid_condition: callable = lambda dtb: dtb is None
+) -> dict:
+    # return epsilons
+    prev_prec = mp.prec
+    solver = get_solver(solver_code)
+    def avoidance_result(eps) -> dict:
+        ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+        tracer = AlgTracer(solver)
+        tracer.begin()
+        mp.prec = prec
+        tp_dtb = tor.distance_to_boundary(ray[0], -ray[1], solver)
+        tp_dtb = None if tp_dtb is None else mp_const(tp_dtb)
+        tracer.end()
+        tp_logstr = tracer.simple_logstring()
+
+        mp.prec = HIGH_PREC
+        tracer.begin()
+        hp_dtb = tor.distance_to_boundary(ray[0], -ray[1], solver)
+        hp_dtb = None if hp_dtb is None else mp_const(hp_dtb)
+        tracer.end()
+        hp_logstr = tracer.simple_logstring()
+        logstr = f"Solver {solver_code} at prec {prec}\n{tp_logstr}\nSolver {solver_code} at prec {HIGH_PREC}\n{hp_logstr}"
+
+        return {
+            "log": [logstr],
+            "tp_dtb": [tp_dtb],
+            "hp_dtb": [hp_dtb],
+            "eps": [eps]
+        }
+    full_res = {
+            "log": [],
+            "tp_dtb": [],
+            "hp_dtb": [],
+            "eps": []
+        }
+    farthest_hit = -1
+    for i in range(len(epsilons)):
+        new_res = avoidance_result(epsilons[i])
+        if not avoid_condition(new_res["tp_dtb"][0]): farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
+        full_res = concat_dicts(full_res, new_res)
+
+    iterate_further = True
+    if farthest_hit == -1: #None of the distances hit, for now just stop iterating at all
+        iterate_further = False
+    if farthest_hit == len(epsilons)-1: #All of the distances hit, likewise iteration probably won't help
+        iterate_further = False
+    
+    # Iterate until the farthest distance that hit, and the next distance after that (which avoids) are a certain magnitude apart
+    max_count = 100; c = 0
+    mp.prec = HIGH_PREC
+    ratio_threshold = mp.power(10, log_convergence)
+
+    while iterate_further and (full_res["eps"][farthest_hit+1]/full_res["eps"][farthest_hit] > ratio_threshold) and (c < max_count):
+        next_eps = mp.sqrt(full_res["eps"][farthest_hit+1]*full_res["eps"][farthest_hit])
+        next_res = avoidance_result(next_eps)
+        full_res = insert_dict_at_index(full_res, next_res, farthest_hit+1)
+        if not avoid_condition(next_res["tp_dtb"][0]): farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
+    print(f"switching back to prec of {prev_prec}")
+    mp.prec = prev_prec
+    return full_res
+
+
 def epsilon_avoid_backcollision(
     tor: EllipticToroid = EllipticToroid(50,10,20),
     epsilons: list = [power(10, i) for i in [-400,-100,-50,-25,0]],
@@ -473,7 +546,7 @@ def epsilon_avoid_backcollision(
     log_convergence = mp.convert(log_convergence)
     # First, normal rays
     special_uvs = []
-    random_uvs = [(mp.rand()*2*mp.pi, (mp.rand()+1.5)*mp.pi) for i in range(uv_count)]
+    random_uvs = [(mp.rand()*2, (mp.rand()+1.5)) for i in range(uv_count)]
     if uv_pairs is None:
         uv_pairs = random_uvs
     # Iterate through different distances to try and find 
@@ -718,8 +791,8 @@ def uvspread_normals(
     prec: int = DOUBLE_PREC,
 ) -> dict:
     u_count = v_count = 5
-    us = [i*2*mp.pi / mpf(u_count) for i in range(u_count)]
-    vs = [i*2*mp.pi / mpf(v_count) for i in range(v_count)]
+    us = [i*2 / mpf(u_count) for i in range(u_count)]
+    vs = [i*2 / mpf(v_count) for i in range(v_count)]
     uvs = [(u,v) for u in us for v in vs]
     return uvs_normals_by_distances(uvs, tor=tor, dists=dists,prec=prec)
 
@@ -731,7 +804,7 @@ def uvrand_normals(
     prec: int = DOUBLE_PREC,
     uv_count: int = 25
 ) -> dict:
-    uvs = [(mp.rand()*2*mp.pi, mp.rand()*2*mp.pi) for i in range(uv_count)]
+    uvs = [(mp.rand()*2, mp.rand()*2) for i in range(uv_count)]
     return uvs_normals_by_distances(uvs, tor=tor, dists=dists,prec=prec)
 
 
