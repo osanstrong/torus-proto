@@ -103,12 +103,17 @@ def get_grazing_ray(
     nor_mag = norm(srf_nor, 2)
     # Rotate normal vector in r-z plane 90˚ to get a direction vector of the ray
     x, y, z = srf_nor
-    r = sqrt(sq(x) + sq(y)) * -sign(cospi(v)) # If the vector is on 'hole' of donut, r is negative
-    zr = z/r
-    graze_dir = matrix([x*zr, y*zr, -r])
+    s = -sign(cospi(v))
+    r = sqrt(sq(x) + sq(y)) * -s # If the vector is on 'hole' of donut, r is negative
+    if r == 0: # Directly up or down
+        graze_dir = matrix([z*cospi(u), z*sinpi(u), 0])
+    else:
+        zr = z/r
+        graze_dir = matrix([x*zr, y*zr, -r])
     graze_mag = norm(graze_dir, 2)
     if sinpi(v) > 0: # If the vector is on 'topside', flip so that the ray is always approaching the z axis
-        graze_dir *= 1
+        graze_dir *= -1
+    graze_dir = matrix([mp_const(c) for c in graze_dir])
     # If required, rotate that vector by yaw
     # Find a point along the ray such that traveling distance from that point along the way arrives at the point
     if not distance is None:
@@ -116,6 +121,7 @@ def get_grazing_ray(
     # Shift in position along epsilon
     if not pos_epsilon is None:
         ray_src += pos_epsilon*matrix(srf_nor)
+    ray_src = matrix([mp_const(c) for c in ray_src])
     mp.prec -= RAY_GENERATION_PRECBOOST
     return ray_src, graze_dir
 
@@ -213,7 +219,7 @@ def point_on_toroid(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
     '''
     Shorthand to find a point on the given torus using parameterized surface coordinates u & v
     '''
-    mp.prec += 100
+    mp.prec += RAY_GENERATION_PRECBOOST
     r = toroid.tor_rad
     a = toroid.hor_rad
     b = toroid.ver_rad
@@ -222,7 +228,7 @@ def point_on_toroid(toroid: EllipticToroid, u: mpf, v: mpf) -> matrix:
        sinpi(u) * (r + a*cospi(v)),
        b * sinpi(v)
     ]])
-    mp.prec -= 100
+    mp.prec -= RAY_GENERATION_PRECBOOST
     return point
 
 
