@@ -13,7 +13,7 @@ from src.toroid import EllipticToroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
 import src.quartics.alg1010 as alg1010
-from src.prec_util import mp_const
+from src.prec_util import mp_const, CONST_PREC
 
 
 # =-----------=
@@ -26,6 +26,7 @@ try:
 except NameError:
     _geab_cache = {} #Do we really need to cache EVERYTHING?
     _exp1_final = {} #Final information about experiment 1, e.g. graphs n stuff
+    _exp1b_cache = {}
     _dbd_cache = {}
     _exp2_final = {}
     _dbdg_cache = {}
@@ -60,7 +61,8 @@ UNIT_TOR = EllipticToroid(1,1,1) #Also critically degenerate, as it would happen
 
 
 # Makes a copy of the given torus, with radii scaled by the specified amounts
-def scaled_copy(tor: EllipticToroid, scales: list[MpfAble]):
+def scaled_copy(tor: EllipticToroid, scales: list[MpfAble], prec: int = None):
+    prev_prec = mp.prec
     scales = [mpf(s) for s in scales]
     return EllipticToroid(
         tor.tor_rad*scales[0],
@@ -129,7 +131,8 @@ BASIC_RANGES: dict = {
 
 def graph_eps_avoid_back(
     num_rays: int = 10,
-    use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch
+    use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
+    uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
     log_resolution = mpf("0.01"),
     solvers = ("tt", "fr"),
     precs = {
@@ -142,9 +145,10 @@ def graph_eps_avoid_back(
     ''''''
     closest_escapes = _geab_cache
     if not use_cache: #If we want to recalculate everything
-        mp.prec += 200
-        uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
-        mp.prec -= 200
+        if uv_pairs is None:
+            mp.prec += 200
+            uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+            mp.prec -= 200
         
         closest_escapes["uv_pairs"] = uv_pairs
         closest_escapes["solvers"] = solvers
@@ -200,26 +204,122 @@ def graph_eps_avoid_back(
     # print(_geab_cache)
 
 
+def graph_geab_indvuv( #experiment 1b
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
+    num_rays: int = 10, # for rand
+    num_u: int = 10, # for fill
+    num_v: int = 10, # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
+    uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
+    ray_type: str = "normal", #Other option: grazing for a grazing ray
+    log_resolution = mpf("0.01"),
+    solvers = ("tt", "fr"),
+    precs = {
+        "single":SINGLE_PREC,
+        "double":DOUBLE_PREC,
+        "quad":QUAD_PREC
+    },
+    verbosity = 1,
+):
+    if not use_cache:
+        if uv_pairs is None:
+            if raygen_type == "rand":
+                uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+            elif raygen_type == "fill":
+                uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+            else:
+                raise ValueError(f"Unrecognized ray generation type {raygen_type}")
+        num_rays = len(uv_pairs)
+        _exp1b_cache["uv_pairs"] = uv_pairs
+        
+        _exp1b_cache["graph"] = {
+            "uv_pairs": uv_pairs,
+            "uv_pairs_raw": [tuple(c._mpf_ for c in uv) for uv in uv_pairs], # Encode rays as their individual in components to preserve info
+            "solvers": solvers,
+            "precs": precs,
+        }
+
+        for slv in solvers:
+            for prec_name in precs:
+                prec = precs[prec_name]
+                fullres_list = []
+                mineps_list = []
+                for i in range(len(uv_pairs)):
+                    uv = uv_pairs[i]
+                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type)
+                    fullres_list.append(full_res)
+                    mineps_list.append(full_res[0])
+                    if verbosity >= 0: print(f"{" "*76}\r{slv}_{prec_name} rays complete: {i+1}", end="\r")
+                mineps = max(mineps_list)
+                _exp1b_cache[f"{slv}_{prec_name}_full"] = fullres_list
+                _exp1b_cache[f"{slv}_{prec_name}"] = mineps
+                _exp1b_cache["graph"][f"{slv}_{prec_name}"] = float(mineps)
+                if verbosity >= 0: print(f"{slv}_{prec_name} complete with mineps of {mineps}")
+    # The actual graphing
+    x = arange(len(precs)) #Label locations
+    width = 0.25 #Width of bars
+
+    fig, ax = plt.subplots(layout='constrained')
+    for i in range(len(solvers)):
+        # prec = precs[i]
+        slv = solvers[i]
+        offset = width*i
+        pos = x+offset
+        # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
+        # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
+        rects = ax.bar(pos, [float(-log(_exp1b_cache[f"{slv}_{prec}"], b=10)) for prec in precs], width, label=slv)
+        # print(rects[:])
+        print(f"location: {pos}, data: {[_exp1b_cache[f"{slv}_{prec}"] for prec in precs]}, width: {width}")
+        ax.bar_label(rects, padding=3)
+
+    # Add text
+    ax.set_ylabel("Closest escape distance d, -log(d)")
+    ray_desc = "??? rays"
+    if raygen_type == "fill":
+        ray_desc = f"{num_u*num_v} rays spanning {uv_range}"
+    elif raygen_type == "rand":
+        ray_desc = f"{num_rays} random rays"
+    ax.set_title(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
+    ax.set_xticks(x+width, precs)
+    ax.legend(loc="upper left", ncols=3)
+    plt.show()
+    
+
 def graph_dev_by_distance(
-    num_rays: int = 10,
-    dists: list = [10**i for i in range(12)],
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    uv_pairs = None,
+    raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
+    num_rays: int = 10, # for rand
+    num_u: int = 10, # for fill
+    num_v: int = 10, # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    dists: list = [mp_const(f"1e{i}") for i in range(12)],
     solvers: list = ["tt", "fr"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
     use_cache: bool = False,
 ):
     if not use_cache:
-        random_uvs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+        if uv_pairs is None:
+            if raygen_type == "rand":
+                uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+            elif raygen_type == "fill":
+                uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+            else:
+                raise ValueError(f"Unrecognized ray generation type {raygen_type}")
         full_res = {}
         for slv in solvers:
             full_res[slv] = {}
             for prec in precs:
-                res = uvs_normals_by_distances(random_uvs, dists=dists, prec=precs[prec], solver_code=slv)
+                res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv)
                 full_res[slv][prec] = res
                 _exp2_final[f"{slv}_{prec}"] = {
                     "mean":res["tp_mean"],
                     "dev":res["tp_dev"],
                     "fail":res["tp_fail"]
                 }
+                print(f"{slv}_{prec} complete")
         _dbd_cache.update(full_res)
         _exp2_final["dists"] = dists
     # If we are using cache, we just assume those are already in place
@@ -228,7 +328,7 @@ def graph_dev_by_distance(
     for slv in solvers:
         for prec in precs:
             for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
-                _exp2_final[f"{slv}_{prec}"][dataset] = [float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
+                _exp2_final[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
             err = [float(log(n, b=10)) for n in _exp2_final[f"{slv}_{prec}"]["dev"]]
             plt.plot(x, err, drawstyle='steps-mid', label=f"{slv} at {prec}")
     plt.legend(title="Solver-precision combo:")
@@ -239,8 +339,13 @@ def graph_dev_by_distance(
 
 
 def graph_dev_by_distance_graze(
-    num_rays: int = 10,
-    dists: list = [10**i for i in range(12)],
+    uv_pairs = None,
+    raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
+    num_rays: int = 10, # for rand
+    num_u: int = 10, # for fill
+    num_v: int = 10, # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    dists: list = [mp_const(f"1e{i}") for i in range(-12,12)],
     solvers: list = ["tt", "fr"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
     use_cache: bool = False,
@@ -250,13 +355,19 @@ def graph_dev_by_distance_graze(
     dist_coords = [(d, surf_dist) for d in dists]
     hole_radius = tor.tor_rad - tor.hor_rad
     if not use_cache:
-        random_uvs = [(mp.rand()*2, (mp.rand()+1.5)) for i in range(num_rays)]
+        if uv_pairs is None:
+            if raygen_type == "rand":
+                uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
+            elif raygen_type == "fill":
+                uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+            else:
+                raise ValueError(f"Unrecognized ray generation type {raygen_type}")
         full_res = {}
         for slv in solvers:
             full_res[slv] = {}
             for prec in precs:
                 res = uvs_grazes_by_distances(
-                    random_uvs, dist_coords, slv, precs[prec],
+                    uv_pairs, dist_coords, slv, precs[prec],
                     tor=tor,
                 )
                 full_res[slv][prec] = res
@@ -456,13 +567,23 @@ def singuv_epsilon_avoid_backcollision(
     solver_code: str = "tt",
     log_convergence: MpfAble = "0.1",
     verbosity: int = 1,
+    ray_type: str = "normal", #Other option: grazing for a grazing ray
     avoid_condition: callable = lambda dtb: dtb is None
-) -> dict:
-    # return epsilons
+) -> tuple[mpf, dict, int]: #The min epsilon, the full results, and the exit code (0 for full iteration, -1 for all avoided and 1 for all hit)
     prev_prec = mp.prec
     solver = get_solver(solver_code)
     def avoidance_result(eps) -> dict:
-        ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+        if ray_type == "normal":
+            ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+        elif ray_type == "grazing":
+            ray = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
+        elif ray_type == "mix45":
+            mp.prec += 200
+            ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+            ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
+            cos45 = mp.cospi(0.25)
+            ray = (ray_norm[0], tuple(mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])))
+
         tracer = AlgTracer(solver)
         tracer.begin()
         mp.prec = prec
@@ -477,21 +598,23 @@ def singuv_epsilon_avoid_backcollision(
         hp_dtb = None if hp_dtb is None else mp_const(hp_dtb)
         tracer.end()
         hp_logstr = tracer.simple_logstring()
-        logstr = f"Solver {solver_code} at prec {prec}\n{tp_logstr}\nSolver {solver_code} at prec {HIGH_PREC}\n{hp_logstr}"
 
         return {
-            "log": [logstr],
+            "tp_log": [tp_logstr],
             "tp_dtb": [tp_dtb],
+            "hp_log": [hp_logstr],
             "hp_dtb": [hp_dtb],
             "eps": [eps]
         }
     full_res = {
-            "log": [],
+            "tp_log": [],
             "tp_dtb": [],
+            "hp_log": [],
             "hp_dtb": [],
             "eps": []
         }
     farthest_hit = -1
+    exit_code = 0
     for i in range(len(epsilons)):
         new_res = avoidance_result(epsilons[i])
         if not avoid_condition(new_res["tp_dtb"][0]): farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
@@ -500,8 +623,10 @@ def singuv_epsilon_avoid_backcollision(
     iterate_further = True
     if farthest_hit == -1: #None of the distances hit, for now just stop iterating at all
         iterate_further = False
+        exit_code = -1
     if farthest_hit == len(epsilons)-1: #All of the distances hit, likewise iteration probably won't help
         iterate_further = False
+        exit_code = 1
     
     # Iterate until the farthest distance that hit, and the next distance after that (which avoids) are a certain magnitude apart
     max_count = 100; c = 0
@@ -513,9 +638,8 @@ def singuv_epsilon_avoid_backcollision(
         next_res = avoidance_result(next_eps)
         full_res = insert_dict_at_index(full_res, next_res, farthest_hit+1)
         if not avoid_condition(next_res["tp_dtb"][0]): farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
-    print(f"switching back to prec of {prev_prec}")
     mp.prec = prev_prec
-    return full_res
+    return full_res["eps"][farthest_hit+1], full_res, exit_code
 
 
 def epsilon_avoid_backcollision(
@@ -1233,4 +1357,15 @@ def random_uvs(uv_range: list[MpfAble], num_rays: int) -> list[tuple[mpf, mpf]]:
     return [(uv_range[0] + mp.rand()*(uv_range[1]-uv_range[0]), uv_range[2] + mp.rand()*(uv_range[3]-uv_range[2])) for i in range(num_rays)]
 
 
-# Returns sets of random uvs 
+# Returns a spread of uvs in the given range with the given u and v densities
+def uv_fillrange(uvr: list[mpf, mpf, mpf, mpf], u_density=5, v_density=5):
+    prev = mp.prec
+    mp.prec = CONST_PREC
+    uvs = [
+        (
+            mp_const(uvr[0] + (uvr[1]-uvr[0])*mpf(u_i) / mpf(u_density)),
+            mp_const(uvr[2] + (uvr[3]-uvr[2])*mpf(v_i) / mpf(v_density)),
+        ) for u_i in range(u_density+1) for v_i in range(v_density+1)
+    ]
+    mp.prec = prev
+    return uvs
