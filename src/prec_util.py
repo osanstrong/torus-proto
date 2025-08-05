@@ -44,3 +44,6 @@ def mp_const(val: MpfAble, reduced_prec: int = None):
     mp.prec = prev
     func = lambda prec, rnd=round_fast: normalize(hpv_comps[0], hpv_comps[1], hpv_comps[2], hpv_comps[3], prec, rnd)
     return mp.constant(func, "custom_const")
+
+
+CONST_TYPE = type(mp_const(1))

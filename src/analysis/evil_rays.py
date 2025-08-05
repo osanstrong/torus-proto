@@ -3,19 +3,27 @@ A script to compare and plot results of different solvers
 '''
 
 import sys
+import builtins as blt
+import json
 from collections.abc import Iterable
 from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.ticker as mticker
+import matplotlib.patches as mpatches
+from matplotlib.legend_handler import HandlerTuple
 from numpy import arange
 import pandas as pd
 from mpmath import mpf, matrix, mp, pi, power, log
+import mpmath.ctx_mp_python as ctx_mp_python
+import mpmath.libmp.backend as mpbackend
 from src.toroid import EllipticToroid
+import src.toroid as toroid
 import src.analysis.ray_generator as rg
 from src.solvers import get_solver, calc_real_roots
 import src.quartics.alg1010 as alg1010
 from src.prec_util import mp_const, CONST_PREC
+import src.prec_util as pu
 
 
 # =-----------=
@@ -49,6 +57,45 @@ QUAD_PREC: int = 113
 HIGH_PREC: int = 999
 MpfAble: type = mpf|float|str
 CSS_COLS: dict = mcolors.CSS4_COLORS
+XKCD_COLS: dict = mcolors.XKCD_COLORS
+SLV_DISPLAY: dict = {
+    "tt": "Algorithm 1010",
+    "fr": "Ferrari Method"
+}
+# Representing solver by color and precision by line style
+SLV_COLS: dict = {
+    "tt": XKCD_COLS['xkcd:teal'],
+    "fr": XKCD_COLS['xkcd:orange'],
+}
+PREC_LINESTYLES: dict = {
+    "single": ":",
+    "double": "--",
+    "quad": "-"
+}
+# Representing solver by linestyle and precision by color
+SLV_LINESTYLES: dict = {
+    "tt": "-",
+    "fr": "--",
+}
+PREC_COLS: dict = {
+    "single":CSS_COLS["darkviolet"],
+    "double":CSS_COLS["red"],
+    "quad":CSS_COLS["darkorange"],
+}
+PREC_SLV_COLS: dict = {
+    "single":{
+        "tt": CSS_COLS["darkviolet"], 
+        "fr": CSS_COLS["rebeccapurple"]
+    },
+    "double":{
+        "tt": CSS_COLS["red"],
+        "fr": CSS_COLS["darkred"]
+    },
+    "quad":{
+        "tt": CSS_COLS["darkorange"], 
+        "fr": CSS_COLS["chocolate"]
+    },
+}
 
 
 # =------------------=
@@ -124,6 +171,7 @@ BASIC_RANGES: dict = {
     "diag_top":[0, 2, 0.25-0.1, 0.25+0.1],
     "diag_bottom":[0, 2, 1.75-0.1, 1.75+0.1],
     "full_outside":[0, 2, 1.5, 2.5],
+    "full":[0,2,0,2],
 }
 
 
@@ -217,7 +265,7 @@ def graph_geab_indvuv( #experiment 1b
     num_rays: int = 10, # for rand
     num_u: int = 10, # for fill
     num_v: int = 10, # for fill
-    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
     use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
     uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
     ray_type: str = "normal", #Other option: grazing for a grazing ray
@@ -238,12 +286,12 @@ def graph_geab_indvuv( #experiment 1b
                 uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
             else:
                 raise ValueError(f"Unrecognized ray generation type {raygen_type}")
-        num_rays = len(uv_pairs)
         _exp1b_cache["uv_pairs"] = uv_pairs
+        _exp1b_cache['ray_type'] = ray_type
         
         _exp1b_cache["graph"] = {
             "uv_pairs": uv_pairs,
-            "uv_pairs_raw": [tuple(c._mpf_ for c in uv) for uv in uv_pairs], # Encode rays as their individual in components to preserve info
+            "ray_type": ray_type,
             "solvers": solvers,
             "precs": precs,
         }
@@ -264,11 +312,17 @@ def graph_geab_indvuv( #experiment 1b
                 _exp1b_cache[f"{slv}_{prec_name}"] = mineps
                 _exp1b_cache["graph"][f"{slv}_{prec_name}"] = float(mineps)
                 if verbosity >= 0: print(f"{slv}_{prec_name} complete with mineps of {mineps}")
+    
+    uv_pairs = _exp1b_cache['graph']['uv_pairs']
+    num_rays = len(uv_pairs)
+    ray_type = _exp1b_cache['graph']['ray_type']
     # The actual graphing
     x = arange(len(precs)) #Label locations
-    width = 0.25 #Width of bars
+    width = 0.35 #Width of bars
 
     fig, ax = plt.subplots(layout='constrained')
+
+    min_y = max_y = 1
     for i in range(len(solvers)):
         # prec = precs[i]
         slv = solvers[i]
@@ -276,23 +330,73 @@ def graph_geab_indvuv( #experiment 1b
         pos = x+offset
         # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
         # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
-        rects = ax.bar(pos, [float(-log(_exp1b_cache[f"{slv}_{prec}"], b=10)) for prec in precs], width, label=slv)
+        bottoms = [float(_exp1b_cache[f"{slv}_{prec}"]) for prec in precs]
+        min_y = min(min_y, min(bottoms))
+        heights = [1-b for b in bottoms]
+        rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=[PREC_SLV_COLS[prec][slv] for prec in precs])
         # print(rects[:])
-        print(f"location: {pos}, data: {[_exp1b_cache[f"{slv}_{prec}"] for prec in precs]}, width: {width}")
-        ax.bar_label(rects, padding=3)
+        # print(f"location: {pos}, data: {[_exp1b_cache[f"{slv}_{prec}"] for prec in precs]}, width: {width}")
+        ax.bar_label(rects, labels=['{:0.2e}'.format(b) for b in bottoms], label_type='center')
 
     # Add text
-    ax.set_ylabel("Closest escape distance d, -log(d)")
+    ax.set_ylabel("Closest escape distance (cm)")
+    ax.set_xlabel("Precision level of calculations")
+    ax.yaxis.set_inverted(True)
+    ax.set_ylim([max_y, min_y*0.1])
+    # ax.set_yscale('log')
     ray_desc = "??? rays"
     if raygen_type == "fill":
-        ray_desc = f"{num_u*num_v} rays spanning {uv_range}"
+        ray_desc = f"{num_rays} {ray_type} rays spanning {uv_range}"
     elif raygen_type == "rand":
-        ray_desc = f"{num_rays} random rays"
+        ray_desc = f"{num_rays} random {ray_type} rays"
     ax.set_title(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
     ax.set_xticks(x+width, precs)
-    ax.legend(loc="upper left", ncols=3)
+    multicol_patchlist = [[mpatches.Patch(facecolor=PREC_SLV_COLS[prec][slv], label=SLV_DISPLAY[slv]) for prec in precs] for slv in solvers]
+    ax.legend(
+        handler_map = {list: HandlerTuple(None)},
+        handles=multicol_patchlist, 
+        labels=[SLV_DISPLAY[slv] for slv in solvers],
+        loc="upper left"
+    )
     plt.show()
     
+
+def _plot_dbd(results: dict,
+    # prec_slv_colors: dict = {
+    #     "single":[CSS_COLS["darkviolet"], CSS_COLS["rebeccapurple"]],
+    #     "double":[CSS_COLS["red"], CSS_COLS["darkred"]],
+    #     "quad":[CSS_COLS["darkorange"], CSS_COLS["chocolate"]],
+    # },
+    ):
+    x = results['dists']
+    precs = results['precs']
+    solvers = results['solvers']
+
+    fig, ax = plt.subplots()
+
+    for prec in precs:
+        for slv_i in range(len(solvers)):
+            slv = solvers[slv_i]
+            for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
+                results[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
+            err = results[f"{slv}_{prec}"]["dev"]
+            ax.plot(x, err, drawstyle='steps-mid', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
+            # ax.plot(x, err, drawstyle='steps-mid', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
+    
+    plt.xscale("log")
+    plt.yscale("log")
+    ax.grid(visible=True, which="major")
+    ax.grid(visible=True, which="minor", color="0.9")
+    locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
+    ax.yaxis.set_minor_locator(locmin)
+    ax.xaxis.set_minor_locator(locmin)
+    ax.minorticks_on()
+    plt.legend(title="Solver-precision combo:")
+    plt.xlabel("Distance (cm)")
+    plt.ylabel("Error (cm)")
+    plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
+    plt.show()  
+
 
 def graph_dev_by_distance(
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
@@ -336,43 +440,14 @@ def graph_dev_by_distance(
                 print(f"{slv}_{prec} complete")
         _dbd_cache.update(full_res)
         _exp2_final["dists"] = dists
+    else:
+        dists = _exp2_final["dists"].copy()
     # If we are using cache, we just assume those are already in place
-    # x = [float(log(d)) for d in dists]
-    x = dists
     _exp2_final["dists"] = [float(d) for d in dists]
-    # for slv_i in range(len(solvers)):
-    #     slv = solvers[slv_i]
-    #     for prec in precs:
-
-    fig, ax = plt.subplots()
-    # ax.set(title="loglog")
-    # ax.set_xscale("log")
-    # ax.set_yscale("log")
-    # ax.minorticks_on()
-    # ax.grid(which="both")
-    # ax.grid(visible=True, which="minor", color="0.9")
-
-    for prec in precs:
-        for slv_i in range(len(solvers)):
-            slv = solvers[slv_i]
-            for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
-                _exp2_final[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
-            err = _exp2_final[f"{slv}_{prec}"]["dev"]
-            ax.plot(x, err, drawstyle='steps-mid', label=f"{slv} at {prec}", linestyle=solver_styles[slv_i], color=prec_slv_colors[prec][slv_i])
+    _exp2_final["precs"] = precs
+    _exp2_final["solvers"] = solvers
+    _plot_dbd(_exp2_final)
     
-    plt.xscale("log")
-    plt.yscale("log")
-    ax.grid(visible=True, which="major")
-    ax.grid(visible=True, which="minor", color="0.9")
-    locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
-    ax.yaxis.set_minor_locator(locmin)
-    ax.xaxis.set_minor_locator(locmin)
-    ax.minorticks_on()
-    plt.legend(title="Solver-precision combo:")
-    plt.xlabel("Distance (cm)")
-    plt.ylabel("Error (cm)")
-    plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
-    plt.show()
 
 
 def graph_dev_by_distance_graze(
@@ -605,10 +680,11 @@ def singuv_epsilon_avoid_backcollision(
     log_convergence: MpfAble = "0.1",
     verbosity: int = 1,
     ray_type: str = "normal", #Other option: grazing for a grazing ray
-    avoid_condition: callable = lambda dtb: dtb is None
+    avoid_condition: callable = lambda dtb, hole_radius: dtb is None or dtb > 1.9*hole_radius #Also discount rays that, say you're on the inside region, hit the other side again
 ) -> tuple[mpf, dict, int]: #The min epsilon, the full results, and the exit code (0 for full iteration, -1 for all avoided and 1 for all hit)
     prev_prec = mp.prec
     solver = get_solver(solver_code)
+    hole_radius = tor.tor_rad-tor.hor_rad
     def avoidance_result(eps) -> dict:
         if ray_type == "normal":
             ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
@@ -654,7 +730,7 @@ def singuv_epsilon_avoid_backcollision(
     exit_code = 0
     for i in range(len(epsilons)):
         new_res = avoidance_result(epsilons[i])
-        if not avoid_condition(new_res["tp_dtb"][0]): farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
+        if not avoid_condition(new_res["tp_dtb"][0], hole_radius): farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
         full_res = concat_dicts(full_res, new_res)
 
     iterate_further = True
@@ -674,7 +750,7 @@ def singuv_epsilon_avoid_backcollision(
         next_eps = mp.sqrt(full_res["eps"][farthest_hit+1]*full_res["eps"][farthest_hit])
         next_res = avoidance_result(next_eps)
         full_res = insert_dict_at_index(full_res, next_res, farthest_hit+1)
-        if not avoid_condition(next_res["tp_dtb"][0]): farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
+        if not avoid_condition(next_res["tp_dtb"][0], hole_radius): farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
     mp.prec = prev_prec
     return full_res["eps"][farthest_hit+1], full_res, exit_code
 
@@ -1377,16 +1453,84 @@ def insert_dict_at_index(base_dict, insert_dict, idx) -> dict:
 
 
 # Returns a nested copy of the given dictionary/list combination. Currently only operates on dicts and lists
-def deepcopy(item):
-    if isinstance(item, dict):
+def deepcopy(item, indiv_item_result: callable = lambda item: item):
+    match type(item):
+        case blt.dict:
+            new_dict = {}
+            for key in item:
+                new_dict[key] = deepcopy(item[key], indiv_item_result=indiv_item_result)
+            return new_dict
+        case blt.list:
+            return [deepcopy(n, indiv_item_result=indiv_item_result) for n in item]
+        case blt.tuple:
+            return {
+                    "__tuple__": True,
+                    "items": [deepcopy(n, indiv_item_result=indiv_item_result) for n in item]
+                }
+        case _:
+            return indiv_item_result(item)
+
+
+# Serializes some mp data types
+def serialize_indiv_mpitem(item):
+    match type(item):
+        case mpbackend.MPZ_TYPE:
+            return {"mpz":int(item)}
+        case mp.mpf:
+            return {"mpf":serialize(item._mpf_)}
+        case mp.mpc:
+            return {"mpc":serialize(item._mpc_)}
+        case pu.CONST_TYPE: #NOTE: Only serializes to custom constants, with oct precision
+            prev = mp.prec
+            mp.prec = CONST_PREC
+            s = {"mpconst":serialize(item._mpf_)}
+            mp.prec = prev
+            return s
+        case toroid.EllipticToroid:
+            return {"toroid":serialize([item.tor_rad, item.hor_rad, item.ver_rad])} 
+        case _:
+            return item
+
+
+# Returns a nested copy, where certain mpmath data types are manually serialized
+def serialize(item):
+    return deepcopy(item, indiv_item_result=serialize_indiv_mpitem)
+
+
+# Deserialize a dictionary, given that it might represent an individual mpmath item or a tuple
+def deserialize_dict(item: dict):
+    if len(item) == 1:
+        mtype, content = item.popitem()
+        match mtype:
+            case "mpz": 
+                return mpbackend.MPZ_TYPE(content)
+            case "mpf":
+                return mp.mpf(deserialize(content))
+            case "mpc":
+                return mp.mpc(deserialize(content[0]), deserialize(content[1]))
+            case "mpconst":
+                return mp_const(mp.mpf(deserialize(content)))
+            case "toroid":
+                r, a, b = deserialize(content) # Should return a list
+                return EllipticToroid(r, a, b)
+    if "__tuple__" in item:
+        return tuple(deserialize(it) for it in item["items"])
+    else:
         new_dict = {}
         for key in item:
-            new_dict[key] = deepcopy(item[key])
+            new_dict[key] = deserialize(item[key])
         return new_dict
-    elif isinstance(item, list):
-        return [deepcopy(n) for n in item]
-    else:
-        return item
+
+
+# Deserialize an otherwise json-compatible item with mpf types
+def deserialize(item):
+    match type(item):
+        case blt.dict:
+            return deserialize_dict(item)
+        case blt.list:
+            return [deserialize(it) for it in item]
+        case _:
+            return item
 
 
 # Returns a new set of random uvs in the given range
