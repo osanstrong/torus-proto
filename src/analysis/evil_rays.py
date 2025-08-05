@@ -6,6 +6,8 @@ import sys
 from collections.abc import Iterable
 from inspect import getmembers, isfunction
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.ticker as mticker
 from numpy import arange
 import pandas as pd
 from mpmath import mpf, matrix, mp, pi, power, log
@@ -46,6 +48,7 @@ DOUBLE_PREC: int = 53
 QUAD_PREC: int = 113
 HIGH_PREC: int = 999
 MpfAble: type = mpf|float|str
+CSS_COLS: dict = mcolors.CSS4_COLORS
 
 
 # =------------------=
@@ -169,14 +172,18 @@ def graph_eps_avoid_back(
                 slv_results[i] = closest
             closest_escapes[prec] = slv_results
     else:
-        solvers = closest_escapes["solvers"]
-        precs = closest_escapes["precs"]
+        if closest_escapes:
+            solvers = closest_escapes["solvers"]
+            precs = closest_escapes["precs"]
+        else:
+            solvers = _exp1_final["solvers"]
+            precs = _exp1_final["precs"]
     
     _exp1_final["solvers"] = solvers
     _exp1_final["precs"] = precs
-    _exp1_final["uv_pairs"] = [(repr(pair[0]),repr(pair[1])) for pair in closest_escapes["uv_pairs"]]
+    if closest_escapes:_exp1_final["uv_pairs"] = [(repr(pair[0]),repr(pair[1])) for pair in closest_escapes["uv_pairs"]]
     for prec in precs:
-        _exp1_final[prec] = [float(ep) for ep in closest_escapes[prec]]
+        _exp1_final[prec] = [float(ep) for ep in _exp1_final[prec]]
 
     # The actual graphing
     x = arange(len(precs)) #Label locations
@@ -297,7 +304,14 @@ def graph_dev_by_distance(
     uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
     dists: list = [mp_const(f"1e{i}") for i in range(12)],
     solvers: list = ["tt", "fr"],
+    solver_styles: list = ["-", "--"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
+    prec_colors: dict = {"single":CSS_COLS["darkviolet"], "double":CSS_COLS["red"], "quad":CSS_COLS["darkorange"]},
+    prec_slv_colors: dict = {
+        "single":[CSS_COLS["darkviolet"], CSS_COLS["rebeccapurple"]],
+        "double":[CSS_COLS["red"], CSS_COLS["darkred"]],
+        "quad":[CSS_COLS["darkorange"], CSS_COLS["chocolate"]],
+    },
     use_cache: bool = False,
 ):
     if not use_cache:
@@ -323,17 +337,40 @@ def graph_dev_by_distance(
         _dbd_cache.update(full_res)
         _exp2_final["dists"] = dists
     # If we are using cache, we just assume those are already in place
-    x = [float(log(d)) for d in dists]
+    # x = [float(log(d)) for d in dists]
+    x = dists
     _exp2_final["dists"] = [float(d) for d in dists]
-    for slv in solvers:
-        for prec in precs:
+    # for slv_i in range(len(solvers)):
+    #     slv = solvers[slv_i]
+    #     for prec in precs:
+
+    fig, ax = plt.subplots()
+    # ax.set(title="loglog")
+    # ax.set_xscale("log")
+    # ax.set_yscale("log")
+    # ax.minorticks_on()
+    # ax.grid(which="both")
+    # ax.grid(visible=True, which="minor", color="0.9")
+
+    for prec in precs:
+        for slv_i in range(len(solvers)):
+            slv = solvers[slv_i]
             for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
                 _exp2_final[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
-            err = [float(log(n, b=10)) for n in _exp2_final[f"{slv}_{prec}"]["dev"]]
-            plt.plot(x, err, drawstyle='steps-mid', label=f"{slv} at {prec}")
+            err = _exp2_final[f"{slv}_{prec}"]["dev"]
+            ax.plot(x, err, drawstyle='steps-mid', label=f"{slv} at {prec}", linestyle=solver_styles[slv_i], color=prec_slv_colors[prec][slv_i])
+    
+    plt.xscale("log")
+    plt.yscale("log")
+    ax.grid(visible=True, which="major")
+    ax.grid(visible=True, which="minor", color="0.9")
+    locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
+    ax.yaxis.set_minor_locator(locmin)
+    ax.xaxis.set_minor_locator(locmin)
+    ax.minorticks_on()
     plt.legend(title="Solver-precision combo:")
-    plt.xlabel("Log of distance")
-    plt.ylabel("Log of error (deviation, same units as distance)")
+    plt.xlabel("Distance (cm)")
+    plt.ylabel("Error (cm)")
     plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
     plt.show()
 
