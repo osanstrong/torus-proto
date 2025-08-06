@@ -12,7 +12,11 @@ import matplotlib.colors as mcolors
 import matplotlib.ticker as mticker
 import matplotlib.patches as mpatches
 from matplotlib.legend_handler import HandlerTuple
-from numpy import arange
+from matplotlib.text import Annotation
+from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.mplot3d.proj3d import proj_transform
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+import numpy as np
 import pandas as pd
 from mpmath import mpf, matrix, mp, pi, power, log
 import mpmath.ctx_mp_python as ctx_mp_python
@@ -77,6 +81,11 @@ SLV_LINESTYLES: dict = {
     "tt": "-",
     "fr": "--",
 }
+SLV_POINTSIZE: float = 3
+SLV_POINTSTYLE: dict = {
+    "tt": "o",
+    "fr": "o",
+}
 PREC_COLS: dict = {
     "single":CSS_COLS["darkviolet"],
     "double":CSS_COLS["red"],
@@ -84,18 +93,19 @@ PREC_COLS: dict = {
 }
 PREC_SLV_COLS: dict = {
     "single":{
-        "tt": CSS_COLS["darkviolet"], 
-        "fr": CSS_COLS["rebeccapurple"]
+        "tt": CSS_COLS["indigo"],
+        "fr": CSS_COLS["darkviolet"] 
     },
     "double":{
-        "tt": CSS_COLS["red"],
-        "fr": CSS_COLS["darkred"]
+        "tt": CSS_COLS["maroon"],
+        "fr": CSS_COLS["red"]
     },
     "quad":{
-        "tt": CSS_COLS["darkorange"], 
-        "fr": CSS_COLS["chocolate"]
+        "tt": CSS_COLS["saddlebrown"], 
+        "fr": CSS_COLS["darkorange"]
     },
 }
+RAY_DISPLEN = 20
 
 
 # =------------------=
@@ -234,7 +244,7 @@ def graph_eps_avoid_back(
         _exp1_final[prec] = [float(ep) for ep in _exp1_final[prec]]
 
     # The actual graphing
-    x = arange(len(precs)) #Label locations
+    x = np.arange(len(precs)) #Label locations
     width = 0.25 #Width of bars
 
     fig, ax = plt.subplots(layout='constrained')
@@ -260,11 +270,11 @@ def graph_eps_avoid_back(
 
 
 def graph_geab_indvuv( #experiment 1b
-    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    tor: EllipticToroid = KNOWN_TORII_CM["jet_plasma"],
     raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
     num_rays: int = 10, # for rand
-    num_u: int = 10, # for fill
-    num_v: int = 10, # for fill
+    num_u: int = 20, # for fill
+    num_v: int = 20, # for fill
     uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
     use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
     uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
@@ -284,6 +294,7 @@ def graph_geab_indvuv( #experiment 1b
                 uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
             elif raygen_type == "fill":
                 uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+                _exp1b_cache['uv_range'] = uv_range
             else:
                 raise ValueError(f"Unrecognized ray generation type {raygen_type}")
         _exp1b_cache["uv_pairs"] = uv_pairs
@@ -294,7 +305,10 @@ def graph_geab_indvuv( #experiment 1b
             "ray_type": ray_type,
             "solvers": solvers,
             "precs": precs,
+            "toroid":tor,
         }
+        if raygen_type=="fill":
+            _exp1b_cache["graph"]['uv_range'] = uv_range
 
         for slv in solvers:
             for prec_name in precs:
@@ -313,14 +327,18 @@ def graph_geab_indvuv( #experiment 1b
                 _exp1b_cache["graph"][f"{slv}_{prec_name}"] = float(mineps)
                 if verbosity >= 0: print(f"{slv}_{prec_name} complete with mineps of {mineps}")
     
+    tor = _exp1b_cache['graph']['toroid']
     uv_pairs = _exp1b_cache['graph']['uv_pairs']
     num_rays = len(uv_pairs)
     ray_type = _exp1b_cache['graph']['ray_type']
     # The actual graphing
-    x = arange(len(precs)) #Label locations
+    x = np.arange(len(precs)) #Label locations
     width = 0.35 #Width of bars
 
-    fig, ax = plt.subplots(layout='constrained')
+    # fig, ax = plt.subplots(layout='constrained')
+    fig = plt.figure()
+    ax = fig.add_subplot(1,2,1)
+    fig.set_layout_engine('constrained')
 
     min_y = max_y = 1
     for i in range(len(solvers)):
@@ -330,10 +348,11 @@ def graph_geab_indvuv( #experiment 1b
         pos = x+offset
         # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
         # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
-        bottoms = [float(_exp1b_cache[f"{slv}_{prec}"]) for prec in precs]
+        bottoms = [float(_exp1b_cache["graph"][f"{slv}_{prec}"]) for prec in precs]
         min_y = min(min_y, min(bottoms))
         heights = [1-b for b in bottoms]
-        rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=[PREC_SLV_COLS[prec][slv] for prec in precs])
+        # rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=[PREC_SLV_COLS[prec][slv] for prec in precs])
+        rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=SLV_COLS[slv])
         # print(rects[:])
         # print(f"location: {pos}, data: {[_exp1b_cache[f"{slv}_{prec}"] for prec in precs]}, width: {width}")
         ax.bar_label(rects, labels=['{:0.2e}'.format(b) for b in bottoms], label_type='center')
@@ -346,20 +365,81 @@ def graph_geab_indvuv( #experiment 1b
     # ax.set_yscale('log')
     ray_desc = "??? rays"
     if raygen_type == "fill":
-        ray_desc = f"{num_rays} {ray_type} rays spanning {uv_range}"
+        ray_desc = f"{num_rays} {ray_type} rays spanning {_exp1b_cache['graph']['uv_range']}"
     elif raygen_type == "rand":
         ray_desc = f"{num_rays} random {ray_type} rays"
-    ax.set_title(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
+
+    # fig.suptitle(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
     ax.set_xticks(x+width, precs)
+    ax.set_title("Escapable distances")
     multicol_patchlist = [[mpatches.Patch(facecolor=PREC_SLV_COLS[prec][slv], label=SLV_DISPLAY[slv]) for prec in precs] for slv in solvers]
     ax.legend(
         handler_map = {list: HandlerTuple(None)},
-        handles=multicol_patchlist, 
+        # handles=multicol_patchlist, 
         labels=[SLV_DISPLAY[slv] for slv in solvers],
         loc="upper left"
     )
+
+    ax2 = fig.add_subplot(1,2,2, projection="3d", computed_zorder=False)
+    _plot_pincushion_on_ax(ax2, _exp1b_cache['graph'])
+    ax2.set_title("Rays")
     plt.show()
+
+
+def _plot_pincushion_on_ax(ax, graph_cache: dict):
+    tor = graph_cache['toroid']
+    pad = float(1.5*(tor.tor_rad+tor.hor_rad))
+    X, Y, Z = plot_toroid(tor)
+    ax.axes.set_xlim3d(left=-pad, right=pad)
+    ax.axes.set_ylim3d(bottom=-pad, top=pad)
+    ax.axes.set_zlim3d(bottom=-pad, top=pad)
+    # ax.plot_surface(X, Y, Z, antialiased=True, color="orange", zorder=0)
+    ax.plot_surface(X, Y, Z, antialiased=True, color="orange")
+
+    ray_type = graph_cache['ray_type']
+    uv_pairs = graph_cache['uv_pairs']
+    print(f"ray type: {ray_type}")
+    if ray_type == 'normal':
+        get_ray = lambda uv: rg.get_normal_ray(tor, uv[0], uv[1], 0)
+    elif ray_type == 'grazing':
+        get_ray = lambda uv: rg.get_grazing_ray(tor, uv[0], uv[1])
+
+    raylen = RAY_DISPLEN
+    raylen = (tor.tor_rad*tor.hor_rad)**0.5
+    backsend = 4
+    rays = [get_ray(uv) for uv in uv_pairs]
+    rays = [(ray[0]+backsend*ray[1], ray[1]*-raylen) for ray in rays]
+    for ray in rays:
+        s = [float(n) for n in ray[0]]
+        d = [float(n) for n in ray[1]]
+        ax.arrow3D(s, d)    
     
+
+def graph_double_pincushion(
+        tor = KNOWN_TORII_CM["jet_plasma"],
+        uv_range = [0,2,0,2],
+        num_u = 10,
+        num_v = 10,
+    ):
+    fig, (ax1, ax2) = plt.subplots(ncols=2, subplot_kw={"projection":"3d"})
+    uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+    mockres1 = {
+        'toroid':tor,
+        "uv_pairs":uv_pairs,
+        'ray_type':'normal',
+    }
+    mockres2 = {
+        "toroid":tor,
+        "uv_pairs":uv_pairs,
+        'ray_type':'grazing',
+    }
+    _plot_pincushion_on_ax(ax1, mockres1)
+    ax1.set_title('Normal Rays')
+    _plot_pincushion_on_ax(ax2, mockres2)
+    ax2.set_title("Grazing Rays")
+    plt.show()
+
+
 
 def _plot_dbd(results: dict,
     # prec_slv_colors: dict = {
@@ -372,7 +452,19 @@ def _plot_dbd(results: dict,
     precs = results['precs']
     solvers = results['solvers']
 
-    fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
+    fig = plt.figure(layout="compressed")
+    ax = fig.add_subplot(1, 2, 1)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(visible=True, which="major")
+    ax.grid(visible=True, which="minor", color="0.9")
+    plt.xlabel("Distance (cm)")
+    plt.ylabel("Error (cm)")
+    locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
+    ax.yaxis.set_minor_locator(locmin)
+    ax.xaxis.set_minor_locator(locmin)
+    ax.minorticks_on()
 
     for prec in precs:
         for slv_i in range(len(solvers)):
@@ -380,68 +472,70 @@ def _plot_dbd(results: dict,
             for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
                 results[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
             err = results[f"{slv}_{prec}"]["dev"]
-            ax.plot(x, err, drawstyle='steps-mid', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
+            ax.scatter(x, err, marker=SLV_POINTSTYLE[slv], color=PREC_SLV_COLS[prec][slv], label=f"{SLV_DISPLAY[slv]}, {prec}", zorder=5)
+            # ax.plot(x, err, '', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
             # ax.plot(x, err, drawstyle='steps-mid', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
     
-    plt.xscale("log")
-    plt.yscale("log")
-    ax.grid(visible=True, which="major")
-    ax.grid(visible=True, which="minor", color="0.9")
-    locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
-    ax.yaxis.set_minor_locator(locmin)
-    ax.xaxis.set_minor_locator(locmin)
-    ax.minorticks_on()
-    plt.legend(title="Solver-precision combo:")
-    plt.xlabel("Distance (cm)")
-    plt.ylabel("Error (cm)")
-    plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
+    
+    ax.legend(title="Solver, precision:", loc='lower left', bbox_to_anchor=(1.01, 0.3))
+
+    ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+    _plot_pincushion_on_ax(ax2, results)
+    
+    # plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
     plt.show()  
 
 
 def graph_dev_by_distance(
-    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    tor: EllipticToroid = KNOWN_TORII_CM["jet_plasma"],
     uv_pairs = None,
     raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
     num_rays: int = 10, # for rand
     num_u: int = 10, # for fill
     num_v: int = 10, # for fill
     uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
-    dists: list = [mp_const(f"1e{i}") for i in range(12)],
+    dists: list = [mp_const(f"1e{i}") for i in range(-12, 12)],
     solvers: list = ["tt", "fr"],
-    solver_styles: list = ["-", "--"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
-    prec_colors: dict = {"single":CSS_COLS["darkviolet"], "double":CSS_COLS["red"], "quad":CSS_COLS["darkorange"]},
-    prec_slv_colors: dict = {
-        "single":[CSS_COLS["darkviolet"], CSS_COLS["rebeccapurple"]],
-        "double":[CSS_COLS["red"], CSS_COLS["darkred"]],
-        "quad":[CSS_COLS["darkorange"], CSS_COLS["chocolate"]],
-    },
     use_cache: bool = False,
+    ray_type: str = "normal", # Other option is grazing
+    verbosity: int = 1
 ):
     if not use_cache:
+        full_res = {}
         if uv_pairs is None:
             if raygen_type == "rand":
                 uv_pairs = [(mp_const(mp.rand()*2), mp_const(mp.rand()+1.5)) for i in range(num_rays)]
             elif raygen_type == "fill":
                 uv_pairs = uv_fillrange(uv_range, num_u-1, num_v-1)
+                _exp2_final['uv_range'] = uv_range
             else:
                 raise ValueError(f"Unrecognized ray generation type {raygen_type}")
-        full_res = {}
+        _exp2_final['uv_pairs'] = uv_pairs
+        _exp2_final['ray_type'] = ray_type
+        _exp2_final['toroid'] = tor
+        full_res.update(_exp2_final)
+
         for slv in solvers:
             full_res[slv] = {}
             for prec in precs:
-                res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv)
-                full_res[slv][prec] = res
+                if ray_type == "normal":
+                    res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
+                elif ray_type == "grazing":
+                    res = uvs_grazes_by_distances(uv_pairs, [(d, 0) for d in dists], slv, precs[prec],  tor=tor, verbosity=verbosity)
+                full_res[f"{slv}_{prec}_full"] = res
                 _exp2_final[f"{slv}_{prec}"] = {
                     "mean":res["tp_mean"],
                     "dev":res["tp_dev"],
                     "fail":res["tp_fail"]
                 }
-                print(f"{slv}_{prec} complete")
+                if verbosity >= 0: print(f"{slv}_{prec} complete                 ")
         _dbd_cache.update(full_res)
         _exp2_final["dists"] = dists
     else:
         dists = _exp2_final["dists"].copy()
+        tor = _exp2_final["toroid"]
+
     # If we are using cache, we just assume those are already in place
     _exp2_final["dists"] = [float(d) for d in dists]
     _exp2_final["precs"] = precs
@@ -454,14 +548,14 @@ def graph_dev_by_distance_graze(
     uv_pairs = None,
     raygen_type: str = "fill", #Other option is 'rand', which uses num_rays instead of num_u, num_v, and uv_range
     num_rays: int = 10, # for rand
-    num_u: int = 10, # for fill
+    num_u: int = 30, # for fill
     num_v: int = 10, # for fill
-    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
     dists: list = [mp_const(f"1e{i}") for i in range(-12,12)],
     solvers: list = ["tt", "fr"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
     use_cache: bool = False,
-    surf_dist: mpf = mpf(-1) #Go a little into the torus so it's supposed to hit
+    surf_dist: mpf = 0 #Go a little into the torus so it's supposed to hit
 ):
     tor = EllipticToroid(50,10,20)
     dist_coords = [(d, surf_dist) for d in dists]
@@ -480,7 +574,7 @@ def graph_dev_by_distance_graze(
             for prec in precs:
                 res = uvs_grazes_by_distances(
                     uv_pairs, dist_coords, slv, precs[prec],
-                    tor=tor,
+                    tor=tor
                 )
                 full_res[slv][prec] = res
                 _exp2b_final[f"{slv}_{prec}"] = {
@@ -624,7 +718,7 @@ def graph_escape_by_toroid_random_ranges(
 
     range_names = [rn for rn in uv_ranges]
     tor_names = [tn for tn in toroids]
-    x = arange(len(tor_names)) #Label locations
+    x = np.arange(len(tor_names)) #Label locations
     width = 1.0/float(1+len(range_names)) #Width of bars
 
     for tor_name in tor_names:
@@ -1073,77 +1167,18 @@ def uvs_normals_by_distances(
     face_outwards: bool = False,
     polyn_calc_prec: int = None,
     solver_code: str = "tt",
-    verbosity: int = 1
+    verbosity: int = 1,
+    fail_condition: callable = None,
 ) -> dict:
-    result_list = []
+    if fail_condition is None:
+        fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx]) > min(tor.hor_rad, tor.ver_rad) # Any further out and we assume it might be (correctly) detecting the intersection on the other side
 
     raysets = [[rg.get_normal_ray(tor, uv[0], uv[1], d) for uv in uvs] for d in dists]
     if face_outwards:
         raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
-    full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity)
+    full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity, is_failure=fail_condition)
     full_res["dists"] = dists
     return full_res
-    
-    # for uv in uvs:
-    #     u, v = uv
-    #     if verbose: print(f"Comparing u: {u}, v: {v}, on distances: {dists}")
-    #     uv_result = compare_normals_by_distances(
-    #         tor=tor, dists=dists, prec=prec, 
-    #         u=u, v=v, result_func=get_distance, 
-    #         face_outwards=face_outwards, polyn_calc_prec=polyn_calc_prec, 
-    #         solver_names=[solver_code, f"{solver_code}_hp"])
-    #     if verbose: print(f"{solver_code} result: {uv_result[solver_code]}, vs {uv_result["dists"]}")
-    #     result_list.append(uv_result)
-    #     if verbose: print(f"Rays complete: {len(result_list)}")
-    #     elif not silent: 
-    #         print(" "*20, end="\r")
-    #         print(f"Rays completed: {len(result_list)}", end='\r')
-    # tp_devs = [] # Compared to the high precision result
-    # tp_means = []
-
-    # tp_stddevs = [] # Compared to the average
-    # tp_failrates = [] # At each distance, what percentage of the solves fail to reach a solution entirely
-
-    # hp_failrates = [] # At each distance, what percentage of high-precision solves failed
-
-    # for i in range(len(dists)):
-    #     tp_dev_sum = mpf(0)
-    #     tp_mean_sum = mpf(0)
-    
-    #     tp_failcount = 0 # Includes hp_failcount for these two
-    #     hp_failcount = 0
-    #     both_succeedcount = 0
-    #     for r in result_list:
-    #         tp_result = r[solver_code][i]
-    #         hp_result = r[f"{solver_code}_hp"][i]
-    #         if hp_result is None:
-    #             hp_failcount += 1
-
-    #         if tp_result is None:
-    #             tp_failcount += 1
-    #         else:
-    #             tp_mean_sum += tp_result
-    #             if not hp_result is None:
-    #                 both_succeedcount += 1
-    #                 tp_dev_sum += (tp_result-hp_result)**2    
-        
-    #     uv_count = len(result_list)
-    #     tp_successes = mpf(uv_count - tp_failcount)
-    #     tp_mean = None if tp_successes == 0 else tp_mean_sum / tp_successes
-    #     tp_dev = None if tp_successes-hp_failcount == 0 else mp.sqrt(tp_dev_sum / mpf(both_succeedcount))
-    #     tp_devs.append(tp_dev)
-    #     tp_means.append(tp_mean)
-    #     tp_failrates.append(mpf(tp_failcount)/mpf(uv_count))
-
-    #     hp_failrates.append(mpf(hp_failcount)/mpf(uv_count))
-    # return {
-    #     "raw_results":result_list,
-    #     "dists":dists,
-    #     "tp_mean":tp_means,
-    #     "tp_dev":tp_devs,
-    #     "tp_fail":tp_failrates,
-    #     "hp_fail":hp_failrates
-    # }
 
 
 
@@ -1550,3 +1585,53 @@ def uv_fillrange(uvr: list[mpf, mpf, mpf, mpf], u_density=5, v_density=5):
     ]
     mp.prec = prev
     return uvs
+
+
+# Returns sets of 3d coordinates of the toroid in numpy arrays
+def plot_toroid(toroid: EllipticToroid, precision: int = 1000):
+    U = np.linspace(0, 2 * np.pi, precision)
+    V = np.linspace(0, 2 * np.pi, precision)
+    U, V = np.meshgrid(U, V)
+
+    X = (float(toroid.tor_rad) + float(toroid.hor_rad) * np.cos(V)) * np.cos(U)
+    Y = (float(toroid.tor_rad) + float(toroid.hor_rad) * np.cos(V)) * np.sin(U)
+    Z = float(toroid.ver_rad) * np.sin(V)
+    return X, Y, Z
+
+
+# Taken from https://gist.github.com/WetHat/1d6cd0f7309535311a539b42cccca89c to make drawing rays easier
+class Arrow3D(FancyArrowPatch):
+
+    def __init__(self, x, y, z, dx, dy, dz, *args, **kwargs):
+        super().__init__((0, 0), (0, 0), *args, **kwargs)
+        self._xyz = (x, y, z)
+        self._dxdydz = (dx, dy, dz)
+
+    def draw(self, renderer):
+        x1, y1, z1 = self._xyz
+        dx, dy, dz = self._dxdydz
+        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
+
+        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        super().draw(renderer)
+        
+    def do_3d_projection(self, renderer=None):
+        x1, y1, z1 = self._xyz
+        dx, dy, dz = self._dxdydz
+        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
+
+        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+
+        return np.min(zs) 
+    
+def _arrow3D(ax, xyz, dxyz, *args, **kwargs):
+    '''Add an 3d arrow to an `Axes3D` instance.'''
+    x, y, z = xyz
+    dx, dy, dz = dxyz
+    arrow = Arrow3D(x, y, z, dx, dy, dz, *args, **kwargs)
+    ax.add_artist(arrow)
+
+
+setattr(Axes3D, 'arrow3D', _arrow3D)
