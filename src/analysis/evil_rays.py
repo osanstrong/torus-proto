@@ -317,7 +317,7 @@ def graph_geab_indvuv( #experiment 1b
                 mineps_list = []
                 for i in range(len(uv_pairs)):
                     uv = uv_pairs[i]
-                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type)
+                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type, verbosity=verbosity)
                     fullres_list.append(full_res)
                     mineps_list.append(full_res[0])
                     if verbosity >= 0: print(f"{" "*76}\r{slv}_{prec_name} rays complete: {i+1}", end="\r")
@@ -358,7 +358,7 @@ def graph_geab_indvuv( #experiment 1b
         ax.bar_label(rects, labels=['{:0.2e}'.format(b) for b in bottoms], label_type='center')
 
     # Add text
-    ax.set_ylabel("Closest escape distance (cm)")
+    ax.set_ylabel("epsilon (cm)")
     ax.set_xlabel("Precision level of calculations")
     ax.yaxis.set_inverted(True)
     ax.set_ylim([max_y, min_y*0.1])
@@ -371,7 +371,7 @@ def graph_geab_indvuv( #experiment 1b
 
     # fig.suptitle(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
     ax.set_xticks(x+width, precs)
-    ax.set_title("Escapable distances")
+    ax.set_title("Largest epsilon with incorrect collisions")
     multicol_patchlist = [[mpatches.Patch(facecolor=PREC_SLV_COLS[prec][slv], label=SLV_DISPLAY[slv]) for prec in precs] for slv in solvers]
     ax.legend(
         handler_map = {list: HandlerTuple(None)},
@@ -403,6 +403,11 @@ def _plot_pincushion_on_ax(ax, graph_cache: dict):
         get_ray = lambda uv: rg.get_normal_ray(tor, uv[0], uv[1], 0)
     elif ray_type == 'grazing':
         get_ray = lambda uv: rg.get_grazing_ray(tor, uv[0], uv[1])
+    elif ray_type == 'inside':
+        def get_ray(uv):
+            norm = rg.get_normal_ray(tor, uv[0], uv[1], 0)
+            norm = (norm[0], -norm[1])
+            return norm
 
     raylen = RAY_DISPLEN
     raylen = (tor.tor_rad*tor.hor_rad)**0.5
@@ -412,7 +417,11 @@ def _plot_pincushion_on_ax(ax, graph_cache: dict):
     for ray in rays:
         s = [float(n) for n in ray[0]]
         d = [float(n) for n in ray[1]]
-        ax.arrow3D(s, d)    
+        ax.arrow3D(s, d)
+
+    ax.set_xlabel("x (cm)")
+    ax.set_ylabel("y (cm)")
+    ax.set_zlabel("z (cm)")
     
 
 def graph_double_pincushion(
@@ -773,15 +782,16 @@ def singuv_epsilon_avoid_backcollision(
     solver_code: str = "tt",
     log_convergence: MpfAble = "0.1",
     verbosity: int = 1,
-    ray_type: str = "normal", #Other option: grazing for a grazing ray
-    avoid_condition: callable = lambda dtb, hole_radius: dtb is None or dtb > 1.9*hole_radius #Also discount rays that, say you're on the inside region, hit the other side again
+    ray_type: str = "normal", #Other option: grazing for a grazing ray, mix[dd] where dd is an angle in degrees to rotate from normal to grazing, or inside to flip it around
+    avoid_condition: callable = lambda dtb, plausible_root2_dist: dtb is None or dtb > plausible_root2_dist #Also discount rays that, say you're on the inside region, hit the other side again
 ) -> tuple[mpf, dict, int]: #The min epsilon, the full results, and the exit code (0 for full iteration, -1 for all avoided and 1 for all hit)
     prev_prec = mp.prec
     solver = get_solver(solver_code)
-    hole_radius = tor.tor_rad-tor.hor_rad
     def avoidance_result(eps) -> dict:
         if ray_type == "normal":
             ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+            hole_radius = tor.tor_rad-tor.hor_rad
+            plausible_root2_dist = 1.9*hole_radius
         elif ray_type == "grazing":
             ray = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
         elif ray_type == "mix45":
@@ -790,7 +800,12 @@ def singuv_epsilon_avoid_backcollision(
             ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
             cos45 = mp.cospi(0.25)
             ray = (ray_norm[0], tuple(mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])))
+        elif ray_type == "inside":
+            ray = rg.get_normal_ray(tor, uv[0], uv[1], -eps) #position inside
+            ray = (ray[0], -ray[1]) #And then flip the direction
+            plausible_root2_dist = min(tor.hor_rad, tor.ver_rad) #The distance we can plausibly hit another side changes 
 
+        if verbosity >= 1: print(f"Assuming roots past {plausible_root2_dist} might be a different root")
         tracer = AlgTracer(solver)
         tracer.begin()
         mp.prec = prec
@@ -806,25 +821,31 @@ def singuv_epsilon_avoid_backcollision(
         tracer.end()
         hp_logstr = tracer.simple_logstring()
 
-        return {
+        retval = {
             "tp_log": [tp_logstr],
             "tp_dtb": [tp_dtb],
             "hp_log": [hp_logstr],
             "hp_dtb": [hp_dtb],
-            "eps": [eps]
+            "eps": [eps],
+            "avoids": [avoid_condition(tp_dtb, plausible_root2_dist)],
         }
+        if verbosity >= 1: print(to_df(retval))
+        return retval
     full_res = {
             "tp_log": [],
             "tp_dtb": [],
             "hp_log": [],
             "hp_dtb": [],
-            "eps": []
+            "eps": [],
+            "avoids": [],
         }
     farthest_hit = -1
     exit_code = 0
     for i in range(len(epsilons)):
         new_res = avoidance_result(epsilons[i])
-        if not avoid_condition(new_res["tp_dtb"][0], hole_radius): farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
+        if not new_res["avoids"][0]: 
+            if verbosity >= 1:  print(f"Avoided distance of {epsilons[i]}")
+            farthest_hit = i #I.e. at this distance, we didn't avoid hitting the toroid on the way out
         full_res = concat_dicts(full_res, new_res)
 
     iterate_further = True
@@ -844,7 +865,7 @@ def singuv_epsilon_avoid_backcollision(
         next_eps = mp.sqrt(full_res["eps"][farthest_hit+1]*full_res["eps"][farthest_hit])
         next_res = avoidance_result(next_eps)
         full_res = insert_dict_at_index(full_res, next_res, farthest_hit+1)
-        if not avoid_condition(next_res["tp_dtb"][0], hole_radius): farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
+        if not next_res["avoids"][0]: farthest_hit += 1 #I.e. if it avoided the new result, get closer to the hit, and if it hit, get closer to the miss
     mp.prec = prev_prec
     return full_res["eps"][farthest_hit+1], full_res, exit_code
 
@@ -1245,7 +1266,7 @@ def compare_raysets_vs_hp(
             target_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
             tracer.begin()
             mp.prec = high_prec
-            hp_dtb = toroid.distance_to_boundary(ray[0], ray[1], solver)
+            hp_dtb = toroid.distance_to_boundary(ray[0], ray[1], "tt")
             tracer.end()
             high_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
 
