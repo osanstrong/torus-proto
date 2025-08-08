@@ -59,7 +59,7 @@ class EllipticToroid:
     
     '''
 
-    __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0", "_polyn_calc_prec")
+    __slots__ = ("_tor_rad", "_hor_rad", "_ver_rad", "_p", "_a0", "_b0", "_polyn_calc_prec", "_refine_c0")
 
     def __init__(self, tor_rad: MpfAble, hor_rad: MpfAble, ver_rad: MpfAble):
         '''
@@ -100,6 +100,9 @@ class EllipticToroid:
 
         # Precision to use for finding polynomial
         self._polyn_calc_prec = 999
+
+        # Whether to refine final coefficient, to minimize sign change errors
+        self._refine_c0 = False
 
     @property
     def tor_rad(self) -> mpf:
@@ -323,6 +326,9 @@ class EllipticToroid:
         c2 = sq(m) + 2*u - q*f
         c1 = 2*m*u - q*l
         c0 = sq(u) - q*t
+        if self._refine_c0: 
+            pob = self._p*sq(az) + self._b0
+            c0 = (sq(t) + t*(2*pob - self._a0) + sq(pob)) / sq(g)
 
         if not polyn_calc_prec is None: mpmath.mp.prec = prev_prec
         return [c4, c3, c2, c1, c0]
