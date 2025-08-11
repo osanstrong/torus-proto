@@ -1573,7 +1573,9 @@ def deserialize_dict(item: dict):
             case "mpc":
                 return mp.mpc(deserialize(content[0]), deserialize(content[1]))
             case "mpconst":
-                return mp_const(mp.mpf(deserialize(content)))
+                vals = deserialize(content)
+                vals = (vals[0], vals[1], vals[2], int(vals[3])) #Sometimes mpmath has the last one as an mpz, other times it only wants it to be an int
+                return mp_const(mp.mpf(vals))
             case "toroid":
                 r, a, b = deserialize(content) # Should return a list
                 return EllipticToroid(r, a, b)
