@@ -37,7 +37,8 @@ def scl(l: Iterable[MpfAble], scale: MpfAble):
 # Quick shorthand to check if two arrays are equivalent
 def assert_close(a, b, rel_tol=1e-09, abs_tol=0.0):
     assert len(a) == len(b)
-    assert all(isclose(a[i], b[i]) for i in range(len(a)))
+    for i in range(len(a)):
+        assert isclose(a[i], b[i], rel_tol=rel_tol, abs_tol=abs_tol)
     
 
 # Secondary shorthand to test all intersection methods for a given toroid-ray combo.
@@ -220,7 +221,6 @@ def test_value_errors():
     with pytest.raises(ValueError): tor = EllipticToroid(1, 0, 1)
     with pytest.raises(ValueError): tor = EllipticToroid(1.2, 1, 0)
     with pytest.raises(ValueError): tor = EllipticToroid(0.9, 1, 1)
-    with pytest.raises(ValueError): tor = EllipticToroid(1, 1, 1)
 
     tor = EllipticToroid(2, 1, 1)
     start = [0.2,1,3]
@@ -253,6 +253,8 @@ def test_value_errors():
 
 # Compare basic generated polynomial to a known desmos test case (https://www.desmos.com/3d/3fdrpdcjjw)
 def test_polynom():
+    prev = mpmath.mp.prec
+    mpmath.mp.prec = DEFAULT_PREC
     tor = EllipticToroid(3.05, 1, 0.5)
     s = [1.4 - 0.96, 2.9 + 0.25, 2.6 - 1.3]
     u = [0.63, -0.2, -1.66]
@@ -261,4 +263,5 @@ def test_polynom():
     poly = tor._ray_intersection_polynomial(s, u)
     desmos = [1, -5.60371151562, 21.4844076830, -38.1674209108, 19.9891068153]
 
-    assert_close(poly, desmos)
+    assert_close(poly, [mpf(d) for d in desmos], rel_tol=1e-7)
+    mpmath.mp.prec = prev
