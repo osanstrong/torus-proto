@@ -69,8 +69,8 @@ class FerrariSolver:
         # 1/4 of b, because it comes up a lot
         qb = 0.25*b
 
-        # Subsidiary cubic equation
-        p, q, r = self._subsidiary_cubic(qb, c, d, e)
+        # x= y - b/4 --> y^4 + py^2 + qy + r = 0
+        p, q, r = self._incomplete_quartic(qb, c, d, e)
 
         # Edge case: equation is biquadratic
         if self._is_zero(q, tol=B0_TOLERANCE):
@@ -93,10 +93,11 @@ class FerrariSolver:
         # Find shifted roots using quadratic equations    
         r0, r1 = self._solve_normalized_quadratic(s.real, z0.real + t.real)
         r2, r3 = self._solve_normalized_quadratic(-s.real, z0.real - t.real)
+        
         # Shift roots back to x
         return r0 - qb, r1 - qb, r2 - qb, r3 - qb
 
-    def _subsidiary_cubic(self, qb, c, d, e) -> tuple[mpf]:
+    def _incomplete_quartic(self, qb, c, d, e) -> tuple[mpf]:
         qb2 = sq(qb)
         return (
             3*qb2 - 0.5*c,
