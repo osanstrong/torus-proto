@@ -57,5 +57,5 @@ def get_solver(name: str):
         case "np" | "numpy":
             solver = numpyqs.NumpySolver
         case _:
-            raise ValueError(f"'{solver}' is not a known solver")
+            raise ValueError(f"'{name}' is not a known solver")
     return solver

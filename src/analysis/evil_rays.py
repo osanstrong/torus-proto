@@ -83,8 +83,8 @@ SLV_LINESTYLES: dict = {
 }
 SLV_POINTSIZE: float = 3
 SLV_POINTSTYLE: dict = {
-    "tt": "o",
-    "fr": "o",
+    "tt": ">",
+    "fr": "<",
 }
 PREC_COLS: dict = {
     "single":CSS_COLS["darkviolet"],
@@ -287,6 +287,7 @@ def graph_geab_indvuv( #experiment 1b
         "quad":QUAD_PREC
     },
     verbosity = 1,
+    save_fullcache = True, #In extreme cases, this could be disabled to save system memory/disc
 ):
     if not use_cache:
         if uv_pairs is None:
@@ -317,12 +318,12 @@ def graph_geab_indvuv( #experiment 1b
                 mineps_list = []
                 for i in range(len(uv_pairs)):
                     uv = uv_pairs[i]
-                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type, verbosity=verbosity)
+                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type, verbosity=verbosity, log_convergence=log_resolution)
                     fullres_list.append(full_res)
                     mineps_list.append(full_res[0])
                     if verbosity >= 0: print(f"{" "*76}\r{slv}_{prec_name} rays complete: {i+1}", end="\r")
                 mineps = max(mineps_list)
-                _exp1b_cache[f"{slv}_{prec_name}_full"] = fullres_list
+                if save_fullcache: _exp1b_cache[f"{slv}_{prec_name}_full"] = fullres_list
                 _exp1b_cache[f"{slv}_{prec_name}"] = mineps
                 _exp1b_cache["graph"][f"{slv}_{prec_name}"] = float(mineps)
                 if verbosity >= 0: print(f"{slv}_{prec_name} complete with mineps of {mineps}")
@@ -371,7 +372,7 @@ def graph_geab_indvuv( #experiment 1b
 
     # fig.suptitle(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
     ax.set_xticks(x+width, precs)
-    ax.set_title("Largest epsilon with incorrect collisions")
+    ax.set_title("Magnitude of nearest epsilon without incorrect collisions")
     multicol_patchlist = [[mpatches.Patch(facecolor=PREC_SLV_COLS[prec][slv], label=SLV_DISPLAY[slv]) for prec in precs] for slv in solvers]
     ax.legend(
         handler_map = {list: HandlerTuple(None)},
@@ -408,6 +409,8 @@ def _plot_pincushion_on_ax(ax, graph_cache: dict):
             norm = rg.get_normal_ray(tor, uv[0], uv[1], 0)
             norm = (norm[0], -norm[1])
             return norm
+    raygen = _raygen_for_type(ray_type)
+    get_ray = lambda uv: raygen(uv, tor, 0)[0]
 
     raylen = RAY_DISPLEN
     raylen = (tor.tor_rad*tor.hor_rad)**0.5
@@ -474,6 +477,7 @@ def _plot_dbd(results: dict,
     ax.yaxis.set_minor_locator(locmin)
     ax.xaxis.set_minor_locator(locmin)
     ax.minorticks_on()
+    ax.set_title("Magnitudes of error vs. distance")
 
     for prec in precs:
         for slv_i in range(len(solvers)):
@@ -490,6 +494,7 @@ def _plot_dbd(results: dict,
 
     ax2 = fig.add_subplot(1, 2, 2, projection="3d")
     _plot_pincushion_on_ax(ax2, results)
+    ax2.set_title("Rays")
     
     # plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
     plt.show()  
@@ -787,6 +792,7 @@ def singuv_epsilon_avoid_backcollision(
 ) -> tuple[mpf, dict, int]: #The min epsilon, the full results, and the exit code (0 for full iteration, -1 for all avoided and 1 for all hit)
     prev_prec = mp.prec
     solver = get_solver(solver_code)
+    raygen = _raygen_for_type(ray_type)
     def avoidance_result(eps) -> dict:
         if ray_type == "normal":
             ray = rg.get_normal_ray(tor, uv[0], uv[1], eps)
@@ -800,10 +806,12 @@ def singuv_epsilon_avoid_backcollision(
             ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
             cos45 = mp.cospi(0.25)
             ray = (ray_norm[0], tuple(mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])))
+            mp.prec -= 200
         elif ray_type == "inside":
             ray = rg.get_normal_ray(tor, uv[0], uv[1], -eps) #position inside
             ray = (ray[0], -ray[1]) #And then flip the direction
             plausible_root2_dist = min(tor.hor_rad, tor.ver_rad) #The distance we can plausibly hit another side changes 
+        ray, plausible_root2_dist = raygen(uv, tor, eps)
 
         if verbosity >= 1: print(f"Assuming roots past {plausible_root2_dist} might be a different root")
         tracer = AlgTracer(solver)
@@ -1656,3 +1664,27 @@ def _arrow3D(ax, xyz, dxyz, *args, **kwargs):
 
 
 setattr(Axes3D, 'arrow3D', _arrow3D)
+
+
+# Gets a function which returns a ray for a location on a torus, and a distance beyond which roots may be another unrelated root (e.g. shooting through a toroid, the second root is the one on the other side)
+def _raygen_for_type(ray_type: str) -> callable:
+    if ray_type == 'normal':
+        get_ray = lambda uv, tor, eps: (rg.get_normal_ray(tor, uv[0], uv[1], eps), 1.9*(tor.tor_rad-tor.hor_rad))
+    elif ray_type == 'grazing':
+        get_ray = lambda uv, tor, eps: (rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps), 1.9*(tor.tor_rad-tor.hor_rad))
+    elif ray_type == 'inside':
+        def get_ray(uv, tor, eps):
+            norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+            norm = (norm[0], -norm[1])
+            return norm, min(tor.hor_rad, tor.ver_rad)
+    elif ray_type == 'mix45':
+        def get_ray(uv, tor, eps):
+            mp.prec += 200
+            ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+            ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
+            cos45 = mp.cospi(0.25)
+            ray = (ray_norm[0], matrix([mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])]))
+            mp.prec -= 200
+            return ray, 1.9*(tor.tor_rad-tor.hor_rad)
+        
+    return get_ray
