@@ -18,7 +18,7 @@ from math import isclose
 
 MpfAble: type = float|int|str|mpf
 
-B0_TOLERANCE: mpf = mpf("1e-8")
+B0_TOLERANCE: mpf = mpf("1e-7")
 
 
 class FerrariSolver:
