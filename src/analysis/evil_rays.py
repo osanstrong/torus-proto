@@ -106,6 +106,7 @@ PREC_SLV_COLS: dict = {
     },
 }
 RAY_DISPLEN = 20
+AX_LABEL_FONTSIZE = 16
 
 
 # =------------------=
@@ -276,6 +277,7 @@ def graph_geab_indvuv( #experiment 1b
     num_u: int = 20, # for fill
     num_v: int = 20, # for fill
     uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
+    epsilons: list = [mp_const(f"1e{i}") for i in [-400, -300,0]], #To manually specify what distances to check
     use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
     uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
     ray_type: str = "normal", #Other option: grazing for a grazing ray
@@ -318,7 +320,7 @@ def graph_geab_indvuv( #experiment 1b
                 mineps_list = []
                 for i in range(len(uv_pairs)):
                     uv = uv_pairs[i]
-                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type, verbosity=verbosity, log_convergence=log_resolution)
+                    full_res = singuv_epsilon_avoid_backcollision(tor, uv, solver_code=slv, prec=prec, ray_type=ray_type, verbosity=verbosity, log_convergence=log_resolution, epsilons=epsilons)
                     fullres_list.append(full_res)
                     mineps_list.append(full_res[0])
                     if verbosity >= 0: print(f"{" "*76}\r{slv}_{prec_name} rays complete: {i+1}", end="\r")
@@ -349,20 +351,34 @@ def graph_geab_indvuv( #experiment 1b
         pos = x+offset
         # print(f"width: {width}, i: {i}, offset: {offset}, x: {x}, pos: {pos}")
         # print(f"width: {type(width)}, i: {type(i)}, offset: {type(offset)}, x: {type(x)}, pos: {type(pos)}")
-        bottoms = [float(_exp1b_cache["graph"][f"{slv}_{prec}"]) for prec in precs]
-        min_y = min(min_y, min(bottoms))
-        heights = [1-b for b in bottoms]
+        
+        # For inverted scale, closer goes up
+        # bottoms = [float(_exp1b_cache["graph"][f"{slv}_{prec}"]) for prec in precs]
+        # min_y = min(min_y, min(bottoms))
+        # heights = [1-b for b in bottoms]
+        
+        # for traditional scale, closer goes down
+        bottoms = [0 for prec in precs]
+        heights = [float(_exp1b_cache["graph"][f"{slv}_{prec}"]) for prec in precs]
+        min_y = min(heights)
+        max_y = max(heights)
+        
         # rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=[PREC_SLV_COLS[prec][slv] for prec in precs])
         rects = ax.bar(pos, heights, width, bottom=bottoms, label=SLV_DISPLAY[slv], log=True, color=SLV_COLS[slv])
         # print(rects[:])
         # print(f"location: {pos}, data: {[_exp1b_cache[f"{slv}_{prec}"] for prec in precs]}, width: {width}")
-        ax.bar_label(rects, labels=['{:0.2e}'.format(b) for b in bottoms], label_type='center')
+
+        # For inverted scale, closer goes up
+        # ax.bar_label(rects, labels=['{:0.2e}'.format(b) for b in bottoms], label_type='center')
+
+        # For traditional scale, closer goes down
+        ax.bar_label(rects, labels=[' ' + '{:0.2e}'.format(h).replace("e"," *\n10^") for h in heights], label_type='center')
 
     # Add text
-    ax.set_ylabel("epsilon (cm)")
-    ax.set_xlabel("Precision level of calculations")
+    ax.set_ylabel("Epsilon without miscollision (cm)", fontsize=AX_LABEL_FONTSIZE)
+    ax.set_xlabel("Precision level of calculations", fontsize=AX_LABEL_FONTSIZE)
     ax.yaxis.set_inverted(True)
-    ax.set_ylim([max_y, min_y*0.1])
+    ax.set_ylim([min_y*0.0001, max_y*100])
     # ax.set_yscale('log')
     ray_desc = "??? rays"
     if raygen_type == "fill":
@@ -372,18 +388,18 @@ def graph_geab_indvuv( #experiment 1b
 
     # fig.suptitle(f"Closest safe distances from Toroid {tor}, for {ray_desc} with different solvers at different precisions")
     ax.set_xticks(x+width, precs)
-    ax.set_title("Magnitude of nearest epsilon without incorrect collisions")
+    # ax.set_title("Magnitude of nearest epsilon without incorrect collisions")
     multicol_patchlist = [[mpatches.Patch(facecolor=PREC_SLV_COLS[prec][slv], label=SLV_DISPLAY[slv]) for prec in precs] for slv in solvers]
     ax.legend(
         handler_map = {list: HandlerTuple(None)},
         # handles=multicol_patchlist, 
         labels=[SLV_DISPLAY[slv] for slv in solvers],
-        loc="upper left"
+        loc="upper right"
     )
 
     ax2 = fig.add_subplot(1,2,2, projection="3d", computed_zorder=False)
     _plot_pincushion_on_ax(ax2, _exp1b_cache['graph'])
-    ax2.set_title("Rays")
+    # ax2.set_title("Rays")
     plt.show()
 
 
@@ -471,20 +487,17 @@ def _plot_dbd(results: dict,
     ax.set_yscale("log")
     ax.grid(visible=True, which="major")
     ax.grid(visible=True, which="minor", color="0.9")
-    plt.xlabel("Distance (cm)")
-    plt.ylabel("Error (cm)")
+    plt.xlabel("Distance (cm)", fontsize=AX_LABEL_FONTSIZE)
+    plt.ylabel("Error (cm)", fontsize=AX_LABEL_FONTSIZE)
     locmin = mticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=120)
     ax.yaxis.set_minor_locator(locmin)
     ax.xaxis.set_minor_locator(locmin)
     ax.minorticks_on()
-    ax.set_title("Magnitudes of error vs. distance")
 
     for prec in precs:
         for slv_i in range(len(solvers)):
             slv = solvers[slv_i]
-            for dataset in ["mean", "dev", "fail"]: #Convert to floats for serializability
-                results[f"{slv}_{prec}"][dataset] = [0 if n is None else float(n) for n in _exp2_final[f"{slv}_{prec}"][dataset]]
-            err = results[f"{slv}_{prec}"]["dev"]
+            err = results[f"{slv}_{prec}"]["dev_mean"]
             ax.scatter(x, err, marker=SLV_POINTSTYLE[slv], color=PREC_SLV_COLS[prec][slv], label=f"{SLV_DISPLAY[slv]}, {prec}", zorder=5)
             # ax.plot(x, err, '', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
             # ax.plot(x, err, drawstyle='steps-mid', label=f"{SLV_DISPLAY[slv]}, {prec}", linestyle=PREC_LINESTYLES[prec], color=SLV_COLS[slv])
@@ -494,10 +507,10 @@ def _plot_dbd(results: dict,
 
     ax2 = fig.add_subplot(1, 2, 2, projection="3d")
     _plot_pincushion_on_ax(ax2, results)
-    ax2.set_title("Rays")
     
     # plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
-    plt.show()  
+    fig.set_figwidth(12.5)
+    plt.show()
 
 
 def graph_dev_by_distance(
@@ -507,7 +520,7 @@ def graph_dev_by_distance(
     num_rays: int = 10, # for rand
     num_u: int = 10, # for fill
     num_v: int = 10, # for fill
-    uv_range: Iterable[mpf] = BASIC_RANGES['full_outside'], # for fill
+    uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
     dists: list = [mp_const(f"1e{i}") for i in range(-12, 12)],
     solvers: list = ["tt", "fr"],
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
@@ -536,14 +549,14 @@ def graph_dev_by_distance(
                 if ray_type == "normal":
                     res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
                 elif ray_type == "grazing":
-                    res = uvs_grazes_by_distances(uv_pairs, [(d, 0) for d in dists], slv, precs[prec],  tor=tor, verbosity=verbosity)
+                    res = uvs_grazes_by_distances(uv_pairs, [(d, -0.0001) for d in dists], slv, precs[prec],  tor=tor, verbosity=verbosity)
                 full_res[f"{slv}_{prec}_full"] = res
                 _exp2_final[f"{slv}_{prec}"] = {
-                    "mean":res["tp_mean"],
-                    "dev":res["tp_dev"],
+                    "dev_mean":res["tp_dev_mean"],
+                    "dev_indv":res["tp_dev_indv"],
                     "fail":res["tp_fail"]
                 }
-                if verbosity >= 0: print(f"{slv}_{prec} complete                 ")
+                if verbosity >= 0: print(f"{slv}_{prec} complete"+" "*40)
         _dbd_cache.update(full_res)
         _exp2_final["dists"] = dists
     else:
@@ -1184,7 +1197,10 @@ def uvs_grazes_by_distances(
     hole_radius = tor.tor_rad - tor.hor_rad
     if fail_condition is None: fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx][0]) > hole_radius # Any further out and we assume it might be (correctly) detecting the intersection on the other side
     raysets = [[rg.get_grazing_ray(tor, u=uv[0], v=uv[1], distance=d[0], pos_epsilon=d[1]) for uv in uvs] for d in dists]
-    return compare_raysets_vs_hp(raysets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
+    distsets = [[d[0],]*len(uvs) for d in dists]
+    return compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, verbosity=verbosity)
+    # return compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
+    # return compare_raysets_vs_hp(raysets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
     
 
 
@@ -1205,7 +1221,10 @@ def uvs_normals_by_distances(
     raysets = [[rg.get_normal_ray(tor, uv[0], uv[1], d) for uv in uvs] for d in dists]
     if face_outwards:
         raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
-    full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity, is_failure=fail_condition)
+    distsets = [[d,]*len(uvs) for d in dists]
+    full_res = compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
+    # full_res = compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, verbosity=verbosity)
+    # full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity, is_failure=fail_condition)
     full_res["dists"] = dists
     return full_res
 
@@ -1221,6 +1240,69 @@ def get_first_intersection_z(tor, ray_src, ray_dir, slv):
         return inters[0][2]
     else:
         return None
+
+
+def compare_raysets_vs_knownres(
+    raysets: Iterable[Iterable[tuple[matrix, matrix]]],
+    knownres: Iterable[Iterable[mpf]], #Known distances corresponding to each ray in every rayset
+    solver_name: str,
+    target_prec: int,
+    toroid: EllipticToroid = EllipticToroid(50,10,20),
+    polyn_calc_prec: int = None, 
+    is_failure: callable = lambda dist, set_idx, ray_idx: dist is None,
+    verbosity: int = 0
+) -> dict:
+    final_results = {
+        "full_logs":[],
+        "tp_dev_mean":[], # One mean deviation
+        "tp_dev_indv":[], # Lists of each of the deviations
+        "tp_fail":[] # What proportion of each target precision attempts failed
+    }
+    solver = get_solver(solver_name)
+    for set_idx in range(len(raysets)):
+        rayset = raysets[set_idx]
+        devs = []
+
+        num_rays = len(rayset)
+        logs = []
+        tp_failcount = 0
+        c = 0
+        for ray_idx in range(num_rays):
+            ray = rayset[ray_idx]
+            known_dtb = knownres[set_idx][ray_idx]
+            tracer = AlgTracer(solver)
+            tracer.begin()
+            mp.prec = target_prec
+            # tp_dtb = toroid.distance_to_boundary(ray[0], ray[1], solver)
+            tp_dtbs = toroid.ray_intersection_distances(ray[0], ray[1], solver)
+            tp_dtb = None
+            for dtb in tp_dtbs:
+                if tp_dtb is None or abs(tp_dtb - known_dtb) > abs(dtb - known_dtb):
+                    tp_dtb = dtb
+            # print(f"Testing precision: {mp.prec} (should be {target_prec})")
+            tracer.end()
+            target_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
+            logs.append(target_log)
+
+            tp_fail = is_failure(tp_dtb, set_idx, ray_idx)
+
+            dev = None if tp_fail else tp_dtb - knownres[set_idx][ray_idx]
+            devs.append(dev)
+
+            if tp_fail: tp_failcount += 1
+            
+            c += 1
+            if verbosity >= 0: 
+                print(" "*40, end="\r")
+                print(f"Set {set_idx} rays completed: {c}", end='\r')
+
+        dev = np.nan if any(dev_indv is None for dev_indv in devs) else sum([abs(d) for d in devs]) / mpf(num_rays)
+        tp_failrate = mpf(tp_failcount) / mpf(num_rays)
+        final_results["full_logs"].append(logs)
+        final_results["tp_dev_indv"].append(devs)
+        final_results["tp_dev_mean"].append(dev)
+        final_results["tp_fail"].append(tp_failrate)
+    return final_results
 
 
 def compare_raysets_vs_hp(
@@ -1247,7 +1329,8 @@ def compare_raysets_vs_hp(
     final_results = {
         "full_logs":[],
         "tp_mean":[],
-        "tp_dev":[],
+        "tp_dev_mean":[], # One mean deviation
+        "tp_dev_indv":[], # Lists of each of the deviations
         "tp_fail":[],
         "hp_fail":[]
     }
@@ -1255,7 +1338,7 @@ def compare_raysets_vs_hp(
     for set_idx in range(len(raysets)):
         rayset = raysets[set_idx]
         mean_sum = 0
-        dev_sum = 0
+        devs = []
         tp_failcount = 0
         hp_failcount = 0
         both_succeedcount = 0
@@ -1286,13 +1369,16 @@ def compare_raysets_vs_hp(
             if tp_fail: tp_failcount+=1
             if hp_fail: hp_failcount+=1
 
+            dev = None
             # Average: add if it succeeds
             if not tp_fail:
                 mean_sum += tp_dtb
                 # Deviation: add if there's also a hp to compare to
                 if not hp_fail:
                     both_succeedcount += 1
-                    dev_sum += (tp_dtb-hp_dtb)**2
+                    dev = tp_dtb - hp_dtb
+
+            devs.append(dev)
             
             c += 1
             if verbosity >= 0: 
@@ -1301,13 +1387,14 @@ def compare_raysets_vs_hp(
 
         
         mean = None if (num_rays-tp_failcount)==0 else mean_sum / mpf(num_rays - tp_failcount)
-        dev = None if both_succeedcount==0 else mp.sqrt(dev_sum / mpf(both_succeedcount))
+        dev = np.nan if any(dev_indv is None for dev_indv in devs) else sum([abs(d) for d in devs]) / mpf(num_rays)
         tp_failrate = mpf(tp_failcount) / mpf(num_rays)
         hp_failrate = mpf(hp_failcount) / mpf(num_rays)
 
         final_results["full_logs"].append(logs)
         final_results["tp_mean"].append(mean)
-        final_results["tp_dev"].append(dev)
+        final_results["tp_dev_indv"].append(devs)
+        final_results["tp_dev_mean"].append(dev)
         final_results["tp_fail"].append(tp_failrate)
         final_results["hp_fail"].append(hp_failrate)
     return final_results
@@ -1567,15 +1654,13 @@ def deserialize_dict(item: dict):
         mtype, content = item.popitem()
         match mtype:
             case "mpz": 
-                return mpbackend.MPZ_TYPE(content)
+                return int(content) #For now, doesn't seem to be any reason to try and mimic the exact integer type, at least when initializing new mpf instances (it should decide that automatically)
             case "mpf":
                 return mp.mpf(deserialize(content))
             case "mpc":
                 return mp.mpc(deserialize(content[0]), deserialize(content[1]))
             case "mpconst":
-                vals = deserialize(content)
-                vals = (vals[0], vals[1], vals[2], int(vals[3])) #Sometimes mpmath has the last one as an mpz, other times it only wants it to be an int
-                return mp_const(mp.mpf(vals))
+                return mp_const(mp.mpf(deserialize(content)))
             case "toroid":
                 r, a, b = deserialize(content) # Should return a list
                 return EllipticToroid(r, a, b)
