@@ -526,6 +526,8 @@ def graph_dev_by_distance(
     precs: dict = {"single":SINGLE_PREC, "double":DOUBLE_PREC, "quad":QUAD_PREC},
     use_cache: bool = False,
     ray_type: str = "normal", # Other option is grazing
+    rel_inset: mpf = None, # For grazing rays, push the intersection back this far into the toroid so we guarantee it actually hits. Relative to the maximum 
+    backfudge: mpf = 2, #how much farther to send the rays back than we think we need to
     verbosity: int = 1
 ):
     if not use_cache:
@@ -549,7 +551,23 @@ def graph_dev_by_distance(
                 if ray_type == "normal":
                     res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
                 elif ray_type == "grazing":
-                    res = uvs_grazes_by_distances(uv_pairs, [(d, -0.0001) for d in dists], slv, precs[prec],  tor=tor, verbosity=verbosity)
+                    prev = mp.prec
+                    mp.prec = precs[prec]
+                    ep = mp.eps
+                    mp.prec += 100
+                    offset_ang = mp.acos(1-(rel_inset*ep))
+                    rel_backset = mp.sin(offset_ang)
+                    fudge = backfudge*max(tor.ver_rad/tor.hor_rad, tor.hor_rad/tor.ver_rad)
+                    
+                    maxrad = max(tor.ver_rad, tor.hor_rad)
+                    inset = maxrad*rel_inset*ep
+                    backset = maxrad*rel_backset*fudge
+                    print(f"inset: {inset}, backset: {backset}")
+                    mp.prec -= 100
+                    res = uvs_grazes_by_distances(
+                        uv_pairs, [(d+backset, -inset) for d in dists], slv, precs[prec],  tor=tor, verbosity=verbosity
+                        )
+                    mp.prec = prev
                 full_res[f"{slv}_{prec}_full"] = res
                 _exp2_final[f"{slv}_{prec}"] = {
                     "dev_mean":res["tp_dev_mean"],
@@ -1198,13 +1216,38 @@ def uvs_grazes_by_distances(
     if fail_condition is None: fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx][0]) > hole_radius # Any further out and we assume it might be (correctly) detecting the intersection on the other side
     raysets = [[rg.get_grazing_ray(tor, u=uv[0], v=uv[1], distance=d[0], pos_epsilon=d[1]) for uv in uvs] for d in dists]
     distsets = [[d[0],]*len(uvs) for d in dists]
-    return compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, verbosity=verbosity)
+    # return compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, verbosity=verbosity)
     # return compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
-    # return compare_raysets_vs_hp(raysets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
+    return compare_raysets_vs_hp(raysets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
     
 
 
 def uvs_normals_by_distances(
+    uvs,
+    tor: EllipticToroid = EllipticToroid(50, 10, 20),
+    dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
+    prec: int = DOUBLE_PREC,
+    face_outwards: bool = False,
+    polyn_calc_prec: int = None,
+    solver_code: str = "tt",
+    verbosity: int = 1,
+    fail_condition: callable = None,
+) -> dict:
+    if fail_condition is None:
+        fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx]) > min(tor.hor_rad, tor.ver_rad) # Any further out and we assume it might be (correctly) detecting the intersection on the other side
+
+    raysets = [[rg.get_normal_ray(tor, uv[0], uv[1], d) for uv in uvs] for d in dists]
+    if face_outwards:
+        raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
+    distsets = [[d,]*len(uvs) for d in dists]
+    full_res = compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, is_failure=fail_condition, verbosity=verbosity)
+    # full_res = compare_raysets_vs_knownres(raysets, distsets, solver_code, prec, toroid=tor, verbosity=verbosity)
+    # full_res = compare_raysets_vs_hp(raysets, solver_code, prec, tor, verbosity=verbosity, is_failure=fail_condition)
+    full_res["dists"] = dists
+    return full_res
+
+
+def uvs_mixes_by_distances(
     uvs,
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
@@ -1754,7 +1797,7 @@ setattr(Axes3D, 'arrow3D', _arrow3D)
 
 
 # Gets a function which returns a ray for a location on a torus, and a distance beyond which roots may be another unrelated root (e.g. shooting through a toroid, the second root is the one on the other side)
-def _raygen_for_type(ray_type: str) -> callable:
+def _raygen_for_type(ray_type: str, ang: mpf = None) -> callable:
     if ray_type == 'normal':
         get_ray = lambda uv, tor, eps: (rg.get_normal_ray(tor, uv[0], uv[1], eps), 1.9*(tor.tor_rad-tor.hor_rad))
     elif ray_type == 'grazing':
@@ -1773,5 +1816,21 @@ def _raygen_for_type(ray_type: str) -> callable:
             ray = (ray_norm[0], matrix([mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])]))
             mp.prec -= 200
             return ray, 1.9*(tor.tor_rad-tor.hor_rad)
+    elif ray_type == 'mix': #Mix from grazing to normal, in pi radians
+        def get_ray(uv, tor, eps):
+            mp.prec += 200
+            ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
+            ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
+            c, s = mp.cospi_sinpi(ang)
+            tpos = rg.point_on_toroid(tor, uv[0], uv[1])
+            new_dir = c*ray_graz[1] + s*ray_norm[1]
+            new_pos = tpos - (eps*new_dir)
+            ray = (
+                matrix([mp_const(n) for n in new_pos]),
+                matrix([mp_const(n) for n in new_dir])
+            )
+            mp.prec -=200
+            return ray, 1.9*(tor.tor_rad-tor.hor_rad)
+
         
     return get_ray
