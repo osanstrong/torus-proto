@@ -1826,7 +1826,7 @@ def _raygen_for_type(ray_type: str, ang: mpf = None) -> callable:
             mp.prec += 200
             ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
             ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
-            c, s = mp.cospi_sinpi(0.03)
+            c, s = mp.cospi_sinpi(0.001)
             tpos = rg.point_on_toroid(tor, uv[0], uv[1])
             new_dir = c*ray_graz[1] + s*ray_norm[1]
             new_pos = tpos - (eps*new_dir)
