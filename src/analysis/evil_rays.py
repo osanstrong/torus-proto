@@ -528,6 +528,7 @@ def graph_dev_by_distance(
     ray_type: str = "normal", # Other option is grazing
     rel_inset: mpf = None, # For grazing rays, push the intersection back this far into the toroid so we guarantee it actually hits. Relative to the maximum 
     backfudge: mpf = 2, #how much farther to send the rays back than we think we need to
+    ang_pirad: mpf = 0.1, # How much to shift from grazing to normal for mix type rays
     verbosity: int = 1
 ):
     if not use_cache:
@@ -550,6 +551,8 @@ def graph_dev_by_distance(
             for prec in precs:
                 if ray_type == "normal":
                     res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
+                elif ray_type == "mix":
+                    res = uvs_mixes_by_distances(uv_pairs, ang_pirad, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
                 elif ray_type == "grazing":
                     prev = mp.prec
                     mp.prec = precs[prec]
@@ -1249,6 +1252,7 @@ def uvs_normals_by_distances(
 
 def uvs_mixes_by_distances(
     uvs,
+    ang_pirad,
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
     prec: int = DOUBLE_PREC,
@@ -1261,7 +1265,8 @@ def uvs_mixes_by_distances(
     if fail_condition is None:
         fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx]) > min(tor.hor_rad, tor.ver_rad) # Any further out and we assume it might be (correctly) detecting the intersection on the other side
 
-    raysets = [[rg.get_normal_ray(tor, uv[0], uv[1], d) for uv in uvs] for d in dists]
+    raygen = _raygen_for_type("mix", ang_pirad)
+    raysets = [[raygen(uv, tor, d)[0] for uv in uvs] for d in dists]
     if face_outwards:
         raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
     distsets = [[d,]*len(uvs) for d in dists]
@@ -1821,7 +1826,7 @@ def _raygen_for_type(ray_type: str, ang: mpf = None) -> callable:
             mp.prec += 200
             ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
             ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
-            c, s = mp.cospi_sinpi(ang)
+            c, s = mp.cospi_sinpi(0.03)
             tpos = rg.point_on_toroid(tor, uv[0], uv[1])
             new_dir = c*ray_graz[1] + s*ray_norm[1]
             new_pos = tpos - (eps*new_dir)
