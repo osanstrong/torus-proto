@@ -107,6 +107,7 @@ PREC_SLV_COLS: dict = {
 }
 RAY_DISPLEN = 20
 AX_LABEL_FONTSIZE = 16
+EXPORT_DPI = 600
 
 
 # =------------------=
@@ -469,12 +470,9 @@ def graph_double_pincushion(
 
 
 
-def _plot_dbd(results: dict,
-    # prec_slv_colors: dict = {
-    #     "single":[CSS_COLS["darkviolet"], CSS_COLS["rebeccapurple"]],
-    #     "double":[CSS_COLS["red"], CSS_COLS["darkred"]],
-    #     "quad":[CSS_COLS["darkorange"], CSS_COLS["chocolate"]],
-    # },
+def _plot_dbd(
+        results: dict,
+        plot_file: str
     ):
     x = results['dists']
     precs = results['precs']
@@ -509,7 +507,9 @@ def _plot_dbd(results: dict,
     _plot_pincushion_on_ax(ax2, results)
     
     # plt.title("Error by distance for toroid 50x10x20 for normal rays approaching at different solvers and precisions")
-    fig.set_figwidth(12.5)
+    fig.set_figwidth(12.7)
+    if not plot_file is None:
+        plt.savefig(plot_file, dpi=EXPORT_DPI)
     plt.show()
 
 
@@ -529,7 +529,8 @@ def graph_dev_by_distance(
     rel_inset: mpf = None, # For grazing rays, push the intersection back this far into the toroid so we guarantee it actually hits. Relative to the maximum 
     backfudge: mpf = 2, #how much farther to send the rays back than we think we need to
     ang_pirad: mpf = 0.1, # How much to shift from grazing to normal for mix type rays
-    verbosity: int = 1
+    verbosity: int = 1,
+    plot_file: str = None #Export to a file if specified
 ):
     if not use_cache:
         full_res = {}
@@ -588,7 +589,7 @@ def graph_dev_by_distance(
     _exp2_final["dists"] = [float(d) for d in dists]
     _exp2_final["precs"] = precs
     _exp2_final["solvers"] = solvers
-    _plot_dbd(_exp2_final)
+    _plot_dbd(_exp2_final, plot_file)
     
 
 
