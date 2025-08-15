@@ -278,7 +278,7 @@ def graph_geab_indvuv( #experiment 1b
     num_u: int = 20, # for fill
     num_v: int = 20, # for fill
     uv_range: Iterable[mpf] = BASIC_RANGES['full'], # for fill
-    epsilons: list = [mp_const(f"1e{i}") for i in [-400, -300,0]], #To manually specify what distances to check
+    epsilons: list = [mp_const(f"1e{i}") for i in [-400, -300,1]], #To manually specify what distances to check
     use_cache: bool = False, #Whether to use the cache data or run calcs all over again from scratch,
     uv_pairs: Iterable[tuple[mpf, mpf]] = None, #If not using cache, reuse a specific set of rays for repeatability
     ray_type: str = "normal", #Other option: grazing for a grazing ray
@@ -401,6 +401,7 @@ def graph_geab_indvuv( #experiment 1b
     ax2 = fig.add_subplot(1,2,2, projection="3d", computed_zorder=False)
     _plot_pincushion_on_ax(ax2, _exp1b_cache['graph'])
     # ax2.set_title("Rays")
+    fig.set_figwidth(12.7)
     plt.show()
 
 
@@ -552,8 +553,8 @@ def graph_dev_by_distance(
             for prec in precs:
                 if ray_type == "normal":
                     res = uvs_normals_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
-                elif ray_type == "mix":
-                    res = uvs_mixes_by_distances(uv_pairs, ang_pirad, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity)
+                elif ray_type == "mix" or ray_type == "latmix":
+                    res = uvs_mixes_by_distances(uv_pairs, tor=tor, dists=dists, prec=precs[prec], solver_code=slv, verbosity=verbosity, lateral=(ray_type=="latmix"))
                 elif ray_type == "grazing":
                     prev = mp.prec
                     mp.prec = precs[prec]
@@ -896,6 +897,7 @@ def singuv_epsilon_avoid_backcollision(
         iterate_further = False
         exit_code = -1
     if farthest_hit == len(epsilons)-1: #All of the distances hit, likewise iteration probably won't help
+        if verbosity >= 1: print("All distances produced collisions")
         iterate_further = False
         exit_code = 1
     
@@ -1253,7 +1255,6 @@ def uvs_normals_by_distances(
 
 def uvs_mixes_by_distances(
     uvs,
-    ang_pirad,
     tor: EllipticToroid = EllipticToroid(50, 10, 20),
     dists: list[MpfAble] = [power(10, i) for i in range(4, 12)],
     prec: int = DOUBLE_PREC,
@@ -1262,11 +1263,12 @@ def uvs_mixes_by_distances(
     solver_code: str = "tt",
     verbosity: int = 1,
     fail_condition: callable = None,
+    lateral: bool = False,
 ) -> dict:
     if fail_condition is None:
         fail_condition = lambda dist, set_idx, ray_idx: dist is None or abs(dist-dists[set_idx]) > min(tor.hor_rad, tor.ver_rad) # Any further out and we assume it might be (correctly) detecting the intersection on the other side
 
-    raygen = _raygen_for_type("mix", ang_pirad)
+    raygen = _raygen_for_type("latmix") if lateral else _raygen_for_type("mix")
     raysets = [[raygen(uv, tor, d)[0] for uv in uvs] for d in dists]
     if face_outwards:
         raysets = [[(ray[0], ray[1]*-1) for ray in rayset] for rayset in raysets]
@@ -1408,7 +1410,7 @@ def compare_raysets_vs_hp(
             mp.prec = high_prec
             hp_dtb = toroid.distance_to_boundary(ray[0], ray[1], "tt")
             tracer.end()
-            high_log = f"{solver_name} at prec {mp.prec}\n"+tracer.simple_logstring()
+            high_log = f"tt at prec {mp.prec}\n"+tracer.simple_logstring()
 
             logs.append(f"{target_log}\n{high_log}")
 
@@ -1433,6 +1435,8 @@ def compare_raysets_vs_hp(
             if verbosity >= 0: 
                 print(" "*40, end="\r")
                 print(f"Set {set_idx} rays completed: {c}", end='\r')
+        if verbosity >= -1:
+            print(f"Set {set_idx} complete" + " "*40)
 
         
         mean = None if (num_rays-tp_failcount)==0 else mean_sum / mpf(num_rays - tp_failcount)
@@ -1822,11 +1826,11 @@ def _raygen_for_type(ray_type: str, ang: mpf = None) -> callable:
             ray = (ray_norm[0], matrix([mp_const(c) for c in (cos45*ray_norm[1]+cos45*ray_graz[1])]))
             mp.prec -= 200
             return ray, 1.9*(tor.tor_rad-tor.hor_rad)
-    elif ray_type == 'mix': #Mix from grazing to normal, in pi radians
+    elif ray_type == 'mix' or ray_type == 'latmix': #Mix from grazing to normal, in pi radians
         def get_ray(uv, tor, eps):
             mp.prec += 200
             ray_norm = rg.get_normal_ray(tor, uv[0], uv[1], eps)
-            ray_graz = rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
+            ray_graz = rg.get_lateral_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps) if (ray_type=='latmix') else rg.get_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps)
             c, s = mp.cospi_sinpi(0.001)
             tpos = rg.point_on_toroid(tor, uv[0], uv[1])
             new_dir = c*ray_graz[1] + s*ray_norm[1]
@@ -1837,6 +1841,8 @@ def _raygen_for_type(ray_type: str, ang: mpf = None) -> callable:
             )
             mp.prec -=200
             return ray, 1.9*(tor.tor_rad-tor.hor_rad)
+    elif ray_type == 'lat_grazing': #NOTE: currently only supports v range [1.5,2.5] / 'outside' as formula for second intersection distance isn't derived yet
+        get_ray = lambda uv, tor, eps: (rg.get_lateral_grazing_ray(tor, uv[0], uv[1], pos_epsilon=eps), 999)
 
         
     return get_ray

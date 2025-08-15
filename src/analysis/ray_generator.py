@@ -126,6 +126,36 @@ def get_grazing_ray(
     return ray_src, graze_dir
 
 
+def get_lateral_grazing_ray(
+    toroid: EllipticToroid,
+    u: mpf = 0,
+    v: mpf = 0,
+    distance: mpf = None,
+    pos_epsilon: mpf = None,
+) -> tuple[matrix, matrix]:
+    ''''''
+    surf_point = point_on_toroid(toroid, u, v)
+    mp.prec += RAY_GENERATION_PRECBOOST
+    y, x = mp.cospi_sinpi(u)
+    x *= -1
+    ray_dir = mp.matrix([
+        mp_const(x),
+        mp_const(y),
+        mp_const(0)
+    ])
+    ray_src = surf_point
+    # Find a point along the ray such that traveling distance from that point along the way arrives at the point
+    if not distance is None:
+        ray_src -= distance*ray_dir
+    # Shift in position along epsilon
+    if not pos_epsilon is None:
+        srf_nor = toroid.surface_normal(ray_src)
+        ray_src += pos_epsilon*matrix(srf_nor)
+    ray_src = matrix([mp_const(c) for c in ray_src])
+    mp.prec -= RAY_GENERATION_PRECBOOST
+    return ray_src, ray_dir
+
+
 def get_donut_hole_ray(
     toroid: EllipticToroid,
     u: mpf,
