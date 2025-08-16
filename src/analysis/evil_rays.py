@@ -62,6 +62,15 @@ HIGH_PREC: int = 999
 MpfAble: type = mpf|float|str
 CSS_COLS: dict = mcolors.CSS4_COLORS
 XKCD_COLS: dict = mcolors.XKCD_COLORS
+IBM_COLS: dict = {
+    "blue": "#648fff",
+    "violet": "#785ef0",
+    "magenta": "#dc367f",
+    "orange": "#fe6100",
+    "yellow": "#ffb000",
+    "black": "#000000",
+    "white": "#ffffff"
+}
 SLV_DISPLAY: dict = {
     "tt": "Algorithm 1010",
     "fr": "Ferrari Method"
